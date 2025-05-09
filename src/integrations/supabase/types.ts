@@ -29,16 +29,64 @@ export type Database = {
       }
       appointments: {
         Row: {
+          appointment_date: string | null
           created_at: string
+          distance: number | null
           id: number
+          location: string | null
+          price: number | null
+          service_id: number | null
+          status: string | null
+          user_id: string | null
         }
         Insert: {
+          appointment_date?: string | null
           created_at?: string
+          distance?: number | null
           id?: number
+          location?: string | null
+          price?: number | null
+          service_id?: number | null
+          status?: string | null
+          user_id?: string | null
         }
         Update: {
+          appointment_date?: string | null
           created_at?: string
+          distance?: number | null
           id?: number
+          location?: string | null
+          price?: number | null
+          service_id?: number | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
         }
         Relationships: []
       }
