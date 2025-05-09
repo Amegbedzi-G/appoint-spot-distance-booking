@@ -2,18 +2,20 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ServiceProvider } from "@/contexts/ServiceContext";
 import { AppointmentProvider } from "@/contexts/AppointmentContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // User pages
 import HomePage from "@/pages/HomePage";
 import ServicesPage from "@/pages/ServicesPage";
 import BookServicePage from "@/pages/BookServicePage";
 import BookingConfirmationPage from "@/pages/BookingConfirmationPage";
+import AuthPage from "@/pages/AuthPage";
 
 // Admin pages
 import AdminLoginPage from "@/pages/admin/AdminLoginPage";
@@ -46,22 +48,44 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                {/* User Routes */}
+                {/* Auth Route */}
+                <Route 
+                  path="/auth" 
+                  element={<AuthPage />} 
+                />
+                
+                {/* Protected User Routes */}
                 <Route 
                   path="/" 
-                  element={<MainLayout><HomePage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><HomePage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/services" 
-                  element={<MainLayout><ServicesPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><ServicesPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/book/:serviceId" 
-                  element={<MainLayout><BookServicePage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><BookServicePage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/booking/confirmation/:appointmentId" 
-                  element={<MainLayout><BookingConfirmationPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><BookingConfirmationPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 
                 {/* Admin Routes */}

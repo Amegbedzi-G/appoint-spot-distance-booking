@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { useServices, Service } from '@/contexts/ServiceContext';
 import { calculateDistance } from '@/utils/distanceUtils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Location {
   address: string;
@@ -74,6 +76,7 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { services, getServiceById } = useServices();
+  const { user } = useAuth();
 
   useEffect(() => {
     const savedAppointments = localStorage.getItem('appointmentBookingAppointments');
@@ -102,6 +105,39 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return service.basePrice + (distance * service.pricePerKm);
   };
 
+  // Function to send email notifications
+  const sendEmailNotification = async (
+    email: string,
+    type: 'booking' | 'approved' | 'declined',
+    appointment: Appointment
+  ) => {
+    try {
+      const service = getServiceById(appointment.serviceId);
+      const serviceName = service ? service.name : 'Unknown Service';
+      
+      await supabase.functions.invoke('send-email', {
+        body: {
+          to: email,
+          type,
+          customerName: appointment.customerName,
+          appointmentData: {
+            id: appointment.id,
+            serviceName,
+            date: appointment.date,
+            time: appointment.timeSlot,
+            location: appointment.location.address,
+            price: appointment.price,
+            notes: appointment.notes
+          }
+        }
+      });
+      
+      console.log(`${type} email sent to ${email}`);
+    } catch (error) {
+      console.error(`Failed to send ${type} email:`, error);
+    }
+  };
+
   const bookAppointment = async (appointmentData: Omit<Appointment, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => {
     // Calculate final price
     const price = calculatePrice(appointmentData.serviceId, appointmentData.distance);
@@ -118,32 +154,45 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     setAppointments((prev) => [...prev, newAppointment]);
     
-    // Mock email notification
-    console.info('Email notification sent to admin for new booking');
+    // Send email notification
+    await sendEmailNotification(
+      newAppointment.customerEmail,
+      'booking',
+      newAppointment
+    );
+    
     toast.success('Appointment booked successfully! Awaiting admin approval.');
     
     return newAppointment;
   };
 
-  const updateAppointmentStatus = (id: string, status: Appointment['status']) => {
+  const updateAppointmentStatus = async (id: string, status: Appointment['status']) => {
+    let updatedAppointment: Appointment | undefined;
+    
     setAppointments((prev) =>
-      prev.map((appointment) =>
-        appointment.id === id
-          ? { ...appointment, status, updatedAt: new Date().toISOString() }
-          : appointment
-      )
+      prev.map((appointment) => {
+        if (appointment.id === id) {
+          updatedAppointment = { 
+            ...appointment, 
+            status, 
+            updatedAt: new Date().toISOString() 
+          };
+          return updatedAppointment;
+        }
+        return appointment;
+      })
     );
     
-    const appointment = appointments.find(a => a.id === id);
-    const action = status === 'approved' ? 'approved' : 'declined';
-    
-    // Mock email notifications
-    if (status === 'approved') {
-      console.info(`Email sent to ${appointment?.customerEmail} with payment link`);
-      toast.success(`Appointment ${action}. Payment link sent to customer.`);
-    } else if (status === 'declined') {
-      console.info(`Email sent to ${appointment?.customerEmail} with declined notification`);
-      toast.success(`Appointment ${action}. Customer has been notified.`);
+    if (updatedAppointment) {
+      // Send email notification based on the status
+      await sendEmailNotification(
+        updatedAppointment.customerEmail,
+        status as 'approved' | 'declined',
+        updatedAppointment
+      );
+      
+      const action = status === 'approved' ? 'approved' : 'declined';
+      toast.success(`Appointment ${action}. Customer has been notified via email.`);
     }
   };
 
