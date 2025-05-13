@@ -1,6 +1,6 @@
 
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 import { Button } from '@/components/ui/button';
 import { Menu, MapPin, User, LogOut, LogIn, ChevronDown, CreditCard } from 'lucide-react';
 import { useState } from 'react';
