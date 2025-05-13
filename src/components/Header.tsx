@@ -2,7 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Menu, MapPin, User, LogOut, LogIn, ChevronDown } from 'lucide-react';
+import { Menu, MapPin, User, LogOut, LogIn, ChevronDown, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 
 const Header = () => {
@@ -22,7 +22,7 @@ const Header = () => {
           {/* Logo and site name */}
           <Link to="/" className="flex items-center space-x-2">
             <MapPin className="h-6 w-6 text-brand-500" />
-            <span className="text-xl font-semibold text-gray-800">SpotBook</span>
+            <span className="text-xl font-semibold text-gray-800">Service Booking</span>
           </Link>
           
           {/* Desktop Navigation */}
@@ -30,7 +30,15 @@ const Header = () => {
             {isAuthenticated && (
               <>
                 <Link to="/" className="text-gray-600 hover:text-brand-500">Home</Link>
-                <Link to="/services" className="text-gray-600 hover:text-brand-500">Services</Link>
+                {user?.isApproved && user?.hasPaid && (
+                  <Link to="/services" className="text-gray-600 hover:text-brand-500">Services</Link>
+                )}
+                {user?.isApproved && !user?.hasPaid && (
+                  <Link to="/payment" className="flex items-center space-x-1 text-brand-500 font-medium">
+                    <CreditCard className="h-4 w-4" />
+                    <span>Complete Payment</span>
+                  </Link>
+                )}
                 {user?.role === 'admin' && (
                   <div className="relative group">
                     <Button variant="link" className="flex items-center space-x-1">
@@ -41,6 +49,7 @@ const Header = () => {
                       <Link to="/admin" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Dashboard</Link>
                       <Link to="/admin/services" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Manage Services</Link>
                       <Link to="/admin/appointments" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Manage Appointments</Link>
+                      <Link to="/admin/users" className="block px-4 py-2 text-gray-800 hover:bg-gray-100">Approve Users</Link>
                     </div>
                   </div>
                 )}
@@ -52,6 +61,9 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
+                {!user?.isApproved && (
+                  <span className="text-yellow-600 text-sm font-medium">Awaiting Approval</span>
+                )}
                 <span className="text-sm text-gray-600">Hello, {user?.name}</span>
                 <Button variant="ghost" onClick={handleLogout} className="flex items-center space-x-1">
                   <LogOut className="h-4 w-4" />
@@ -89,13 +101,34 @@ const Header = () => {
                 >
                   Home
                 </Link>
-                <Link 
-                  to="/services" 
-                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Services
-                </Link>
+                
+                {user?.isApproved && user?.hasPaid && (
+                  <Link 
+                    to="/services" 
+                    className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Services
+                  </Link>
+                )}
+                
+                {user?.isApproved && !user?.hasPaid && (
+                  <Link 
+                    to="/payment" 
+                    className="block px-3 py-2 text-base font-medium text-brand-500 hover:bg-gray-100 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <CreditCard className="h-4 w-4 inline mr-2" />
+                    Complete Payment
+                  </Link>
+                )}
+                
+                {!user?.isApproved && (
+                  <div className="block px-3 py-2 text-base font-medium text-yellow-600">
+                    Awaiting Approval
+                  </div>
+                )}
+                
                 {user?.role === 'admin' && (
                   <>
                     <Link 
@@ -118,6 +151,13 @@ const Header = () => {
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Manage Appointments
+                    </Link>
+                    <Link 
+                      to="/admin/users" 
+                      className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Approve Users
                     </Link>
                   </>
                 )}

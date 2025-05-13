@@ -16,6 +16,7 @@ import ServicesPage from "@/pages/ServicesPage";
 import BookServicePage from "@/pages/BookServicePage";
 import BookingConfirmationPage from "@/pages/BookingConfirmationPage";
 import AuthPage from "@/pages/AuthPage";
+import PaymentPage from "@/pages/PaymentPage";
 
 // Admin pages
 import AdminLoginPage from "@/pages/admin/AdminLoginPage";
@@ -23,6 +24,7 @@ import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
 import ManageServicesPage from "@/pages/admin/ManageServicesPage";
 import ManageAppointmentsPage from "@/pages/admin/ManageAppointmentsPage";
 import AppointmentDetailsPage from "@/pages/admin/AppointmentDetailsPage";
+import ApproveUsersPage from "@/pages/admin/ApproveUsersPage";
 
 import NotFound from "@/pages/NotFound";
 
@@ -60,6 +62,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <MainLayout><HomePage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/payment" 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><PaymentPage /></MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -108,6 +118,10 @@ const App = () => (
                 <Route 
                   path="/admin/appointments/:appointmentId" 
                   element={<MainLayout><AppointmentDetailsPage /></MainLayout>} 
+                />
+                <Route 
+                  path="/admin/users" 
+                  element={<MainLayout><ApproveUsersPage /></MainLayout>} 
                 />
                 
                 {/* 404 Route */}

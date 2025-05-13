@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,8 @@ interface AuthUser {
   name: string;
   email: string;
   role: 'admin' | 'user';
+  isApproved: boolean;
+  hasPaid: boolean;
 }
 
 interface AuthContextType {
@@ -17,6 +20,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   signUp: (email: string, password: string, name: string) => Promise<void>;
+  checkApprovalStatus: () => Promise<boolean>;
+  setPaymentComplete: () => Promise<void>;
 }
 
 // Mock admin user for demo
@@ -25,6 +30,8 @@ const ADMIN_USER = {
   name: 'Admin User',
   email: 'admin@example.com',
   role: 'admin' as const,
+  isApproved: true,
+  hasPaid: true
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,14 +64,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(ADMIN_USER);
               localStorage.setItem('appointmentBookingUser', JSON.stringify(ADMIN_USER));
             } else {
+              // Regular user - check if they're approved
+              const { data: userProfile } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .single();
+              
               // Regular user
               const authUser: AuthUser = {
                 id: session.user.id,
                 email: session.user.email || '',
                 name: session.user.user_metadata?.name || 'User',
-                role: 'user'
+                role: 'user',
+                isApproved: userProfile?.is_approved || false,
+                hasPaid: userProfile?.has_paid || false
               };
               setUser(authUser);
+              localStorage.setItem('appointmentBookingUser', JSON.stringify(authUser));
             }
           }
         }
@@ -85,14 +102,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(ADMIN_USER);
           localStorage.setItem('appointmentBookingUser', JSON.stringify(ADMIN_USER));
         } else {
-          // Regular user
-          const authUser: AuthUser = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || 'User',
-            role: 'user'
+          // Check if the user is approved
+          const checkUserApproval = async () => {
+            const { data: userProfile } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            // Regular user
+            const authUser: AuthUser = {
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || 'User',
+              role: 'user',
+              isApproved: userProfile?.is_approved || false,
+              hasPaid: userProfile?.has_paid || false
+            };
+            setUser(authUser);
+            localStorage.setItem('appointmentBookingUser', JSON.stringify(authUser));
           };
-          setUser(authUser);
+          
+          checkUserApproval();
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -127,14 +158,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
+        // Check if the user is approved
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .single();
+        
         const authUser: AuthUser = {
           id: data.user.id,
           email: data.user.email || '',
           name: data.user.user_metadata?.name || 'User',
-          role: 'user'
+          role: 'user',
+          isApproved: userProfile?.is_approved || false,
+          hasPaid: userProfile?.has_paid || false
         };
+        
         setUser(authUser);
-        toast.success('Login successful');
+        localStorage.setItem('appointmentBookingUser', JSON.stringify(authUser));
+        
+        if (!authUser.isApproved) {
+          toast.info('Your account is pending admin approval');
+        } else if (!authUser.hasPaid) {
+          toast.info('Your account is approved! Please proceed to payment');
+        } else {
+          toast.success('Login successful');
+        }
       }
     } catch (error: any) {
       toast.error(`Login failed: ${error.message || 'Please check your credentials'}`);
@@ -173,13 +222,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
-        toast.success('Sign up successful! Please check your email for verification.');
+        // Create a user profile entry with approval status set to false
+        await supabase.from('user_profiles').insert({
+          user_id: data.user.id,
+          name,
+          email: data.user.email,
+          is_approved: false,
+          has_paid: false
+        });
+        
+        toast.success('Sign up successful! Please wait for admin approval before logging in.');
       }
     } catch (error: any) {
       toast.error(`Sign up failed: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkApprovalStatus = async (): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      // Refresh user profile data
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (userProfile) {
+        const updatedUser = {
+          ...user,
+          isApproved: userProfile.is_approved,
+          hasPaid: userProfile.has_paid
+        };
+        
+        setUser(updatedUser);
+        localStorage.setItem('appointmentBookingUser', JSON.stringify(updatedUser));
+        
+        if (userProfile.is_approved && !user.isApproved) {
+          toast.success('Your account has been approved! You can now proceed to payment.');
+        }
+        
+        return userProfile.is_approved;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking approval status:', error);
+      return false;
+    }
+  };
+
+  const setPaymentComplete = async (): Promise<void> => {
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('user_profiles')
+        .update({ has_paid: true })
+        .eq('user_id', user.id);
+      
+      const updatedUser = {
+        ...user,
+        hasPaid: true
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('appointmentBookingUser', JSON.stringify(updatedUser));
+      toast.success('Payment completed successfully!');
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      toast.error('Failed to update payment status');
     }
   };
 
@@ -191,7 +307,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         logout,
-        signUp
+        signUp,
+        checkApprovalStatus,
+        setPaymentComplete
       }}
     >
       {children}

@@ -76,7 +76,7 @@ const AuthPage = () => {
     try {
       await signUp(data.email, data.password, data.name);
       toast.success(
-        "Account created successfully! Please check your email for verification.",
+        "Account created successfully! Please wait for admin approval.",
         { duration: 5000 }
       );
       setActiveTab('signin');
@@ -90,7 +90,7 @@ const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-extrabold text-gray-900">SpotBook</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900">Service Booking</h1>
           <p className="mt-2 text-sm text-gray-600">
             Please sign in or create an account to continue
           </p>
