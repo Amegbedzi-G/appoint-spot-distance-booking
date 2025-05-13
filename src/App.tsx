@@ -98,30 +98,50 @@ const App = () => (
                   } 
                 />
                 
-                {/* Admin Routes */}
+                {/* Admin Routes - Now with requireAdmin flag */}
                 <Route 
                   path="/admin/login" 
                   element={<AdminLoginPage />} 
                 />
                 <Route 
                   path="/admin" 
-                  element={<MainLayout><AdminDashboardPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <MainLayout><AdminDashboardPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/admin/services" 
-                  element={<MainLayout><ManageServicesPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <MainLayout><ManageServicesPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/admin/appointments" 
-                  element={<MainLayout><ManageAppointmentsPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <MainLayout><ManageAppointmentsPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/admin/appointments/:appointmentId" 
-                  element={<MainLayout><AppointmentDetailsPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <MainLayout><AppointmentDetailsPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/admin/users" 
-                  element={<MainLayout><ApproveUsersPage /></MainLayout>} 
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <MainLayout><ApproveUsersPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
                 />
                 
                 {/* 404 Route */}

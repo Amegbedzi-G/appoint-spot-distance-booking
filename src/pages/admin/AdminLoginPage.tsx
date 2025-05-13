@@ -10,10 +10,16 @@ import { toast } from '@/components/ui/sonner';
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, user } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Redirect if already logged in as admin
+  if (user?.role === 'admin') {
+    navigate('/admin');
+    return null;
+  }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

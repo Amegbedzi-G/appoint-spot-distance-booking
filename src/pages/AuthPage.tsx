@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,7 +45,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 const AuthPage = () => {
-  const { isAuthenticated, isLoading, login, signUp } = useAuth();
+  const { isAuthenticated, isLoading, login, signUp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('signin');
@@ -72,12 +71,25 @@ const AuthPage = () => {
   });
 
   useEffect(() => {
-    // If user is already authenticated, redirect to the target page or home
+    // If user is already authenticated, redirect appropriately based on role
     if (isAuthenticated && !isLoading) {
       const from = location.state?.from || '/';
-      navigate(from, { replace: true });
+      
+      // If user is admin, redirect to admin dashboard
+      if (user?.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } 
+      // If regular user is approved but hasn't paid, redirect to payment page
+      else if (user?.isApproved && !user?.hasPaid) {
+        navigate('/payment', { replace: true });
+      }
+      // If regular user is approved and has paid, redirect to requested page or home
+      else if (user?.isApproved && user?.hasPaid) {
+        navigate(from, { replace: true });
+      }
+      // Otherwise stay on the auth page with appropriate messaging
     }
-  }, [isAuthenticated, isLoading, navigate, location]);
+  }, [isAuthenticated, isLoading, navigate, location, user]);
 
   const handleLogin = async (values: LoginFormValues) => {
     setIsSubmitting(true);
@@ -122,7 +134,7 @@ const AuthPage = () => {
         
         <Card>
           <CardHeader>
-            <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid grid-cols-2 w-full">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Create Account</TabsTrigger>

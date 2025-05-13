@@ -15,12 +15,14 @@ const Header = () => {
     navigate('/auth');
   };
   
+  const isAdmin = user?.role === 'admin';
+  
   return (
     <header className="bg-white shadow-sm w-full">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo and site name */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to={isAdmin ? "/admin" : "/"} className="flex items-center space-x-2">
             <MapPin className="h-6 w-6 text-brand-500" />
             <span className="text-xl font-semibold text-gray-800">Service Booking</span>
           </Link>
@@ -29,17 +31,24 @@ const Header = () => {
           <nav className="hidden md:flex items-center space-x-6">
             {isAuthenticated && (
               <>
-                <Link to="/" className="text-gray-600 hover:text-brand-500">Home</Link>
-                {user?.isApproved && user?.hasPaid && (
-                  <Link to="/services" className="text-gray-600 hover:text-brand-500">Services</Link>
+                {/* Regular user navigation */}
+                {!isAdmin && (
+                  <>
+                    <Link to="/" className="text-gray-600 hover:text-brand-500">Home</Link>
+                    {user?.isApproved && user?.hasPaid && (
+                      <Link to="/services" className="text-gray-600 hover:text-brand-500">Services</Link>
+                    )}
+                    {user?.isApproved && !user?.hasPaid && (
+                      <Link to="/payment" className="flex items-center space-x-1 text-brand-500 font-medium">
+                        <CreditCard className="h-4 w-4" />
+                        <span>Complete Payment</span>
+                      </Link>
+                    )}
+                  </>
                 )}
-                {user?.isApproved && !user?.hasPaid && (
-                  <Link to="/payment" className="flex items-center space-x-1 text-brand-500 font-medium">
-                    <CreditCard className="h-4 w-4" />
-                    <span>Complete Payment</span>
-                  </Link>
-                )}
-                {user?.role === 'admin' && (
+                
+                {/* Admin navigation */}
+                {isAdmin && (
                   <div className="relative group">
                     <Button variant="link" className="flex items-center space-x-1">
                       <span>Admin</span>
@@ -61,7 +70,7 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                {!user?.isApproved && (
+                {!isAdmin && !user?.isApproved && (
                   <span className="text-yellow-600 text-sm font-medium">Awaiting Approval</span>
                 )}
                 <span className="text-sm text-gray-600">Hello, {user?.name}</span>
@@ -94,42 +103,48 @@ const Header = () => {
           <div className="mt-4 pb-3 space-y-3 md:hidden">
             {isAuthenticated ? (
               <>
-                <Link 
-                  to="/" 
-                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Home
-                </Link>
-                
-                {user?.isApproved && user?.hasPaid && (
-                  <Link 
-                    to="/services" 
-                    className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Services
-                  </Link>
+                {/* Regular user mobile navigation */}
+                {!isAdmin && (
+                  <>
+                    <Link 
+                      to="/" 
+                      className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Home
+                    </Link>
+                    
+                    {user?.isApproved && user?.hasPaid && (
+                      <Link 
+                        to="/services" 
+                        className="block px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100 rounded-md"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Services
+                      </Link>
+                    )}
+                    
+                    {user?.isApproved && !user?.hasPaid && (
+                      <Link 
+                        to="/payment" 
+                        className="block px-3 py-2 text-base font-medium text-brand-500 hover:bg-gray-100 rounded-md"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <CreditCard className="h-4 w-4 inline mr-2" />
+                        Complete Payment
+                      </Link>
+                    )}
+                    
+                    {!user?.isApproved && (
+                      <div className="block px-3 py-2 text-base font-medium text-yellow-600">
+                        Awaiting Approval
+                      </div>
+                    )}
+                  </>
                 )}
                 
-                {user?.isApproved && !user?.hasPaid && (
-                  <Link 
-                    to="/payment" 
-                    className="block px-3 py-2 text-base font-medium text-brand-500 hover:bg-gray-100 rounded-md"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <CreditCard className="h-4 w-4 inline mr-2" />
-                    Complete Payment
-                  </Link>
-                )}
-                
-                {!user?.isApproved && (
-                  <div className="block px-3 py-2 text-base font-medium text-yellow-600">
-                    Awaiting Approval
-                  </div>
-                )}
-                
-                {user?.role === 'admin' && (
+                {/* Admin mobile navigation */}
+                {isAdmin && (
                   <>
                     <Link 
                       to="/admin" 
