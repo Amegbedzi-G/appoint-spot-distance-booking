@@ -11,6 +11,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -20,11 +21,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  // Redirect to auth page if not authenticated
   if (!isAuthenticated) {
     // Save the location the user was trying to access
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
   }
 
+  // Render children if authenticated
   return <>{children}</>;
 };
 
