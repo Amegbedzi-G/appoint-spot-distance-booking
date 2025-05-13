@@ -1,10 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from '@/components/ui/sonner';
-import { useServices, Service } from '@/contexts/ServiceContext';
+import { useServices } from './ServiceContext';
 import { calculateDistance } from '@/utils/distanceUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth';
 
 export interface Location {
   address: string;
