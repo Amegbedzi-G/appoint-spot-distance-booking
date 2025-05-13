@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
@@ -140,7 +139,6 @@ const AuthPage = () => {
                 <TabsTrigger value="signup">Create Account</TabsTrigger>
               </TabsList>
             
-              {/* Fix: Move TabsContent components inside the Tabs component */}
               <TabsContent value="signin">
                 <CardContent className="mt-4">
                   <Form {...loginForm}>
