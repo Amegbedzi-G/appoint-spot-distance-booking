@@ -65,11 +65,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.setItem('appointmentBookingUser', JSON.stringify(ADMIN_USER));
             } else {
               // Regular user - check if they're approved
-              const { data: userProfile } = await supabase
+              const { data: userProfile, error } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('user_id', session.user.id)
                 .single();
+              
+              if (error) {
+                console.error('Error fetching user profile:', error);
+                return;
+              }
               
               // Regular user
               const authUser: AuthUser = {
@@ -104,11 +109,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           // Check if the user is approved
           const checkUserApproval = async () => {
-            const { data: userProfile } = await supabase
+            const { data: userProfile, error } = await supabase
               .from('user_profiles')
               .select('*')
               .eq('user_id', session.user.id)
               .single();
+            
+            if (error) {
+              console.error('Error fetching user profile:', error);
+              return;
+            }
             
             // Regular user
             const authUser: AuthUser = {
@@ -159,11 +169,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         // Check if the user is approved
-        const { data: userProfile } = await supabase
+        const { data: userProfile, error: profileError } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('user_id', data.user.id)
           .single();
+        
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          throw profileError;
+        }
         
         const authUser: AuthUser = {
           id: data.user.id,
@@ -223,13 +238,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         // Create a user profile entry with approval status set to false
-        await supabase.from('user_profiles').insert({
-          user_id: data.user.id,
-          name,
-          email: data.user.email,
-          is_approved: false,
-          has_paid: false
-        });
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: data.user.id,
+            name,
+            email: data.user.email,
+            is_approved: false,
+            has_paid: false
+          });
+          
+        if (profileError) {
+          console.error('Error creating user profile:', profileError);
+          throw profileError;
+        }
         
         toast.success('Sign up successful! Please wait for admin approval before logging in.');
       }
@@ -246,11 +268,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       // Refresh user profile data
-      const { data: userProfile } = await supabase
+      const { data: userProfile, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
         .single();
+      
+      if (error) {
+        console.error('Error checking approval status:', error);
+        return false;
+      }
       
       if (userProfile) {
         const updatedUser = {
@@ -280,10 +307,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     
     try {
-      await supabase
+      const { error } = await supabase
         .from('user_profiles')
         .update({ has_paid: true })
         .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error updating payment status:', error);
+        throw error;
+      }
       
       const updatedUser = {
         ...user,

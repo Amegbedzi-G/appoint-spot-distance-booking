@@ -1,12 +1,19 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from '@/components/ui/sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -16,85 +23,102 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Key, User, ArrowRight } from 'lucide-react';
+import { Loader2, LogIn, UserPlus } from 'lucide-react';
 
-const signUpSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
+const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
 });
 
-const signInSchema = z.object({
+const signupSchema = z.object({
+  name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
   email: z.string().email({ message: 'Please enter a valid email address' }),
-  password: z.string().min(1, { message: 'Please enter your password' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
 });
 
+type LoginFormValues = z.infer<typeof loginSchema>;
+type SignupFormValues = z.infer<typeof signupSchema>;
+
 const AuthPage = () => {
-  const { isAuthenticated, login, signUp, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('signin');
+  const { isAuthenticated, isLoading, login, signUp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const signInForm = useForm<z.infer<typeof signInSchema>>({
-    resolver: zodResolver(signInSchema),
+  const [activeTab, setActiveTab] = useState('signin');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form setup
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
     },
   });
-  
-  const signUpForm = useForm<z.infer<typeof signUpSchema>>({
-    resolver: zodResolver(signUpSchema),
+
+  const signupForm = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       name: '',
       email: '',
       password: '',
+      confirmPassword: '',
     },
   });
-  
+
   useEffect(() => {
-    // Redirect if already authenticated
-    if (isAuthenticated) {
-      // Get the intended destination from location state, or default to home
+    // If user is already authenticated, redirect to the target page or home
+    if (isAuthenticated && !isLoading) {
       const from = location.state?.from || '/';
-      navigate(from);
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
-  
-  const onSignIn = async (data: z.infer<typeof signInSchema>) => {
+  }, [isAuthenticated, isLoading, navigate, location]);
+
+  const handleLogin = async (values: LoginFormValues) => {
+    setIsSubmitting(true);
     try {
-      await login(data.email, data.password);
-      // Navigation will happen in the useEffect when isAuthenticated changes
+      await login(values.email, values.password);
+      // Redirect happens automatically in useEffect when isAuthenticated changes
     } catch (error) {
-      // Error handling is done in AuthContext
+      console.error('Login error:', error);
+      // Error is already handled in the login function
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
-  const onSignUp = async (data: z.infer<typeof signUpSchema>) => {
+
+  const handleSignUp = async (values: SignupFormValues) => {
+    setIsSubmitting(true);
     try {
-      await signUp(data.email, data.password, data.name);
-      toast.success(
-        "Account created successfully! Please wait for admin approval.",
-        { duration: 5000 }
-      );
+      await signUp(values.email, values.password, values.name);
+      toast.success('Sign up successful! Your account is pending approval.');
       setActiveTab('signin');
-      signInForm.setValue('email', data.email);
+      signupForm.reset();
     } catch (error) {
-      // Error handling is done in AuthContext
+      console.error('Signup error:', error);
+      // Error is already handled in the signUp function
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  // If still checking authentication, show loading
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-extrabold text-gray-900">Service Booking</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Please sign in or create an account to continue
-          </p>
-        </div>
+      <div className="max-w-md w-full space-y-8">
         
         <Card>
           <CardHeader>
@@ -106,140 +130,143 @@ const AuthPage = () => {
             </Tabs>
           </CardHeader>
           
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="signin">
-              <Form {...signInForm}>
-                <form onSubmit={signInForm.handleSubmit(onSignIn)}>
-                  <CardContent className="space-y-4 pt-4">
-                    <FormField
-                      control={signInForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <FormControl>
-                              <Input className="pl-10" placeholder="you@example.com" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={signInForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <div className="relative">
-                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <FormControl>
-                              <Input 
-                                className="pl-10" 
-                                type="password" 
-                                placeholder="••••••••" 
-                                {...field} 
-                              />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </CardContent>
+          <TabsContent value="signin">
+            <CardContent>
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="email@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
-                  <CardFooter>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Signing In...' : 'Sign In'} 
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardFooter>
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="******" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Sign In
+                      </>
+                    )}
+                  </Button>
                 </form>
               </Form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <Form {...signUpForm}>
-                <form onSubmit={signUpForm.handleSubmit(onSignUp)}>
-                  <CardContent className="space-y-4 pt-4">
-                    <FormField
-                      control={signUpForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name</FormLabel>
-                          <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <FormControl>
-                              <Input className="pl-10" placeholder="John Doe" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={signUpForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <FormControl>
-                              <Input className="pl-10" placeholder="you@example.com" {...field} />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={signUpForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <div className="relative">
-                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <FormControl>
-                              <Input 
-                                className="pl-10" 
-                                type="password" 
-                                placeholder="••••••••" 
-                                {...field} 
-                              />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </CardContent>
+            </CardContent>
+          </TabsContent>
+          
+          <TabsContent value="signup">
+            <CardContent>
+              <Form {...signupForm}>
+                <form onSubmit={signupForm.handleSubmit(handleSignUp)} className="space-y-4">
+                  <FormField
+                    control={signupForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
-                  <CardFooter>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? 'Creating Account...' : 'Create Account'} 
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardFooter>
+                  <FormField
+                    control={signupForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="email@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={signupForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="******" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={signupForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="******" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating account...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Create Account
+                      </>
+                    )}
+                  </Button>
                 </form>
               </Form>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </TabsContent>
+
+          <CardFooter className="flex justify-center">
+            <CardDescription className="text-center">
+              {activeTab === 'signin' ? (
+                "Don't have an account? Click 'Create Account' above."
+              ) : (
+                "Already have an account? Click 'Sign In' above."
+              )}
+            </CardDescription>
+          </CardFooter>
         </Card>
       </div>
     </div>
