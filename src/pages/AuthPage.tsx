@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
@@ -108,9 +109,8 @@ const AuthPage = () => {
     setIsSubmitting(true);
     try {
       await signUp(values.email, values.password, values.name);
-      toast.success('Sign up successful! Your account is pending approval.');
-      setActiveTab('signin');
-      signupForm.reset();
+      // Now we don't need to switch tabs as users are automatically signed in
+      // The useEffect will handle redirecting based on approval status
     } catch (error) {
       console.error('Signup error:', error);
       // Error is already handled in the signUp function
@@ -170,6 +170,12 @@ const AuthPage = () => {
                           </FormItem>
                         )}
                       />
+
+                      <div className="text-sm">
+                        <p className="text-gray-600">
+                          Demo user: demo@example.com / password123
+                        </p>
+                      </div>
                       
                       <Button type="submit" className="w-full" disabled={isSubmitting}>
                         {isSubmitting ? (

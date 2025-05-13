@@ -13,6 +13,16 @@ export const ADMIN_USER: AuthUser = {
   hasPaid: true
 };
 
+// Demo user account for easy access
+export const DEMO_USER: AuthUser = {
+  id: '2',
+  name: 'Demo User',
+  email: 'demo@example.com',
+  role: 'user',
+  isApproved: true,
+  hasPaid: true
+};
+
 // Save user to localStorage
 export const saveUserToLocalStorage = (user: AuthUser) => {
   localStorage.setItem('appointmentBookingUser', JSON.stringify(user));
@@ -37,9 +47,13 @@ export const getUserFromLocalStorage = (): AuthUser | null => {
   }
 };
 
-// Check if email is admin
+// Check if email is admin or demo user
 export const isAdminEmail = (email: string): boolean => {
   return email === ADMIN_USER.email;
+};
+
+export const isDemoUser = (email: string): boolean => {
+  return email === DEMO_USER.email;
 };
 
 // Create a user profile in Supabase

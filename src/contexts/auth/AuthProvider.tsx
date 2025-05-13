@@ -1,13 +1,16 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthContextType, AuthUser } from './types';
 import { 
-  ADMIN_USER, 
+  ADMIN_USER,
+  DEMO_USER,
   saveUserToLocalStorage, 
   removeUserFromLocalStorage, 
   getUserFromLocalStorage,
   isAdminEmail,
+  isDemoUser,
   createUserProfile,
   getUserProfile,
   updatePaymentStatus
@@ -114,11 +117,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // For demo purposes, we'll check if it's the admin
+      // For demo purposes, check if it's the admin or demo user
       if (isAdminEmail(email) && password === 'admin123') {
         setUser(ADMIN_USER);
         saveUserToLocalStorage(ADMIN_USER);
-        toast.success('Login successful');
+        toast.success('Admin login successful');
+        return;
+      }
+      
+      // Check for demo user
+      if (isDemoUser(email) && password === 'password123') {
+        setUser(DEMO_USER);
+        saveUserToLocalStorage(DEMO_USER);
+        toast.success('Demo user login successful');
         return;
       }
 
@@ -200,7 +211,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user) {
         // Create a user profile entry with approval status set to false
         await createUserProfile(data.user.id, name, data.user.email || '');
-        toast.success('Sign up successful! Please wait for admin approval before logging in.');
+        
+        // Automatically log the user in after signup
+        const userProfile = await getUserProfile(data.user.id);
+        
+        const authUser: AuthUser = {
+          id: data.user.id,
+          email: data.user.email || '',
+          name: data.user.user_metadata?.name || 'User',
+          role: 'user',
+          isApproved: userProfile?.is_approved || false,
+          hasPaid: userProfile?.has_paid || false
+        };
+        
+        setUser(authUser);
+        saveUserToLocalStorage(authUser);
+        
+        toast.success('Account created successfully! Your account is pending approval.');
       }
     } catch (error: any) {
       toast.error(`Sign up failed: ${error.message}`);
