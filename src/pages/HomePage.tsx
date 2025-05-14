@@ -46,18 +46,28 @@ const HomePage = () => {
     appointment.customerEmail === user?.email
   );
   
-  // Find if there's any approved appointment that needs payment
-  const hasApprovedAppointment = userAppointments.some(
+  // Filter appointments by status
+  const pendingAppointments = userAppointments.filter(
+    appointment => appointment.status === 'pending'
+  );
+  
+  const approvedAppointments = userAppointments.filter(
     appointment => appointment.status === 'approved'
   );
   
-  const upcomingAppointments = userAppointments.filter(
-    appointment => appointment.status === 'approved' || appointment.status === 'pending'
+  const declinedAppointments = userAppointments.filter(
+    appointment => appointment.status === 'declined'
   );
   
-  const pastAppointments = userAppointments.filter(
-    appointment => appointment.status === 'completed' || appointment.status === 'declined'
+  const completedAppointments = userAppointments.filter(
+    appointment => appointment.status === 'completed'
   );
+  
+  // Find if there's any approved appointment that needs payment
+  const hasApprovedAppointment = approvedAppointments.length > 0;
+  
+  const upcomingAppointments = [...pendingAppointments, ...approvedAppointments];
+  const pastAppointments = [...completedAppointments, ...declinedAppointments];
   
   return (
     <div className="page-container py-10">
@@ -154,14 +164,15 @@ const HomePage = () => {
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                    <TabsTrigger value="past">Past</TabsTrigger>
+                    <TabsTrigger value="approved">Approved</TabsTrigger>
+                    <TabsTrigger value="declined">Declined</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="upcoming" className="space-y-4">
-                    {upcomingAppointments.length > 0 ? (
-                      upcomingAppointments.map((appointment) => (
+                    {pendingAppointments.length > 0 ? (
+                      pendingAppointments.map((appointment) => (
                         <div 
                           key={appointment.id}
                           className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between"
@@ -175,16 +186,60 @@ const HomePage = () => {
                                  'Service'}
                               </h3>
                               
-                              {appointment.status === 'pending' && (
-                                <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-300">
-                                  Pending
-                                </Badge>
-                              )}
-                              {appointment.status === 'approved' && (
-                                <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 border-green-300">
-                                  Approved - Payment Required
-                                </Badge>
-                              )}
+                              <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-300">
+                                Pending Approval
+                              </Badge>
+                            </div>
+                            
+                            <div className="space-y-1 text-sm text-gray-500">
+                              <div className="flex items-center">
+                                <Calendar className="h-4 w-4 mr-1" />
+                                {appointment.date}
+                              </div>
+                              <div className="flex items-center">
+                                <Clock className="h-4 w-4 mr-1" />
+                                {appointment.timeSlot}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-3 sm:mt-0 flex flex-col items-end justify-between">
+                            <div className="text-right">
+                              <p className="font-medium">${appointment.price.toFixed(2)}</p>
+                              <p className="text-xs text-gray-500">{appointment.distance.toFixed(1)} km</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">You don't have any pending appointments</p>
+                        <Link to="/services">
+                          <Button className="mt-4">Book a Service</Button>
+                        </Link>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="approved" className="space-y-4">
+                    {approvedAppointments.length > 0 ? (
+                      approvedAppointments.map((appointment) => (
+                        <div 
+                          key={appointment.id}
+                          className="border border-green-300 bg-green-50 rounded-lg p-4 flex flex-col sm:flex-row justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center mb-2">
+                              <h3 className="font-medium text-lg">
+                                {appointment.serviceId === '1' ? 'Standard Cleaning' : 
+                                 appointment.serviceId === '2' ? 'Deep Cleaning' : 
+                                 appointment.serviceId === '3' ? 'Move-in/Move-out Cleaning' : 
+                                 'Service'}
+                              </h3>
+                              
+                              <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 border-green-300">
+                                Approved
+                              </Badge>
                             </div>
                             
                             <div className="space-y-1 text-sm text-gray-500">
@@ -205,20 +260,18 @@ const HomePage = () => {
                               <p className="text-xs text-gray-500">{appointment.distance.toFixed(1)} km</p>
                             </div>
                             
-                            {appointment.status === 'approved' && (
-                              <Link to="/payment">
-                                <Button size="sm" className="mt-2">
-                                  <CreditCard className="h-4 w-4 mr-1" />
-                                  Pay Now
-                                </Button>
-                              </Link>
-                            )}
+                            <Link to="/payment" className="mt-2">
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                                <CreditCard className="h-4 w-4 mr-1" />
+                                Pay Now
+                              </Button>
+                            </Link>
                           </div>
                         </div>
                       ))
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-gray-500">You don't have any upcoming appointments</p>
+                        <p className="text-gray-500">You don't have any approved appointments</p>
                         <Link to="/services">
                           <Button className="mt-4">Book a Service</Button>
                         </Link>
@@ -226,12 +279,12 @@ const HomePage = () => {
                     )}
                   </TabsContent>
                   
-                  <TabsContent value="past" className="space-y-4">
-                    {pastAppointments.length > 0 ? (
-                      pastAppointments.map((appointment) => (
+                  <TabsContent value="declined" className="space-y-4">
+                    {declinedAppointments.length > 0 ? (
+                      declinedAppointments.map((appointment) => (
                         <div 
                           key={appointment.id}
-                          className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between"
+                          className="border border-red-200 bg-red-50 rounded-lg p-4 flex flex-col sm:flex-row justify-between"
                         >
                           <div>
                             <div className="flex items-center mb-2">
@@ -242,16 +295,9 @@ const HomePage = () => {
                                  'Service'}
                               </h3>
                               
-                              {appointment.status === 'completed' && (
-                                <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-800 border-blue-300">
-                                  Completed
-                                </Badge>
-                              )}
-                              {appointment.status === 'declined' && (
-                                <Badge variant="outline" className="ml-2 bg-red-100 text-red-800 border-red-300">
-                                  Declined
-                                </Badge>
-                              )}
+                              <Badge variant="outline" className="ml-2 bg-red-100 text-red-800 border-red-300">
+                                Declined
+                              </Badge>
                             </div>
                             
                             <div className="space-y-1 text-sm text-gray-500">
@@ -263,10 +309,15 @@ const HomePage = () => {
                                 <Clock className="h-4 w-4 mr-1" />
                                 {appointment.timeSlot}
                               </div>
+                              {appointment.notes && (
+                                <div className="mt-2 p-2 bg-red-100 rounded text-red-700 text-xs">
+                                  <strong>Reason:</strong> {appointment.notes}
+                                </div>
+                              )}
                             </div>
                           </div>
                           
-                          <div className="text-right mt-3 sm:mt-0">
+                          <div className="mt-3 sm:mt-0 text-right">
                             <p className="font-medium">${appointment.price.toFixed(2)}</p>
                             <p className="text-xs text-gray-500">{appointment.distance.toFixed(1)} km</p>
                           </div>
@@ -274,7 +325,7 @@ const HomePage = () => {
                       ))
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-gray-500">You don't have any past appointments</p>
+                        <p className="text-gray-500">You don't have any declined appointments</p>
                       </div>
                     )}
                   </TabsContent>
