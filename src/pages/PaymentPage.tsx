@@ -18,57 +18,68 @@ const PaymentPage = () => {
   const [paymentMethod, setPaymentMethod] = useState('bank');
   const [hasApprovedAppointments, setHasApprovedAppointments] = useState(false);
 
+  // Check authentication and approval status when component mounts
   useEffect(() => {
-    // If not authenticated, redirect to login
     if (!isAuthenticated) {
       navigate('/auth', { state: { from: '/payment' } });
       return;
     }
 
-    // Check if user has approved appointments
-    if (user && user.email) {
-      const userAppointments = appointments.filter(
-        appointment => appointment.customerEmail === user.email && appointment.status === 'approved'
-      );
-      setHasApprovedAppointments(userAppointments.length > 0);
-    }
-
-    // Check if the user is approved
-    const checkApproval = async () => {
+    const checkStatus = async () => {
       setIsChecking(true);
+
       try {
+        // Check if user has approved appointments
+        if (user && user.email) {
+          const userAppointments = appointments.filter(
+            appointment => appointment.customerEmail === user.email && appointment.status === 'approved'
+          );
+          setHasApprovedAppointments(userAppointments.length > 0);
+        }
+
+        // Check if the user's account is approved
         const isApproved = await checkApprovalStatus();
         
         if (!isApproved) {
           toast.error('Your account has not been approved yet');
           navigate('/');
-        } else if (user?.hasPaid && !hasApprovedAppointments) {
+          return;
+        }
+
+        // If user has already paid and has no approved appointments needing payment
+        if (user?.hasPaid && !hasApprovedAppointments) {
           toast.info('You have already completed payment');
           navigate('/services');
+          return;
         }
+        
       } catch (error) {
-        console.error('Error checking approval status:', error);
+        console.error('Error checking status:', error);
         toast.error('Error checking your account status');
       } finally {
         setIsChecking(false);
       }
     };
-    
-    checkApproval();
+
+    checkStatus();
   }, [isAuthenticated, navigate, user, checkApprovalStatus, appointments, hasApprovedAppointments]);
 
   const handleMockPayment = async () => {
     setIsProcessing(true);
     
     try {
-      // Simulate payment processing
+      // Simulate payment processing with a delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Update payment status in the user profile
       await setPaymentComplete();
       
-      toast.success(`Payment successful via ${paymentMethod}!`);
-      navigate('/services');
+      toast.success(`Payment successful via ${paymentMethod === 'bank' ? 'Bank' : paymentMethod === 'paypal' ? 'PayPal' : 'Bitcoin'}!`);
+      
+      // Redirect to services page after successful payment
+      setTimeout(() => {
+        navigate('/services');
+      }, 1000);
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Payment failed. Please try again.');
