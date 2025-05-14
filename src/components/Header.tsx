@@ -1,18 +1,38 @@
 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
 import { Button } from '@/components/ui/button';
-import { Menu, MapPin, User, LogOut, LogIn, ChevronDown, CreditCard } from 'lucide-react';
+import { 
+  Menu, 
+  MapPin, 
+  User, 
+  LogOut, 
+  LogIn, 
+  ChevronDown, 
+  CreditCard,
+  X 
+} from 'lucide-react';
 import { useState } from 'react';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { toast } from '@/components/ui/sonner';
 
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   
   const handleLogout = () => {
     logout();
     navigate('/auth');
+    toast.success("You have been logged out successfully.");
   };
   
   const isAdmin = user?.role === 'admin';
@@ -69,16 +89,38 @@ const Header = () => {
           {/* Auth buttons */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                {!isAdmin && !user?.isApproved && (
-                  <span className="text-yellow-600 text-sm font-medium">Awaiting Approval</span>
-                )}
-                <span className="text-sm text-gray-600">Hello, {user?.name}</span>
-                <Button variant="ghost" onClick={handleLogout} className="flex items-center space-x-1">
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2">
+                    <User className="h-4 w-4" />
+                    <span>{user?.name}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {!isAdmin && !user?.isApproved && (
+                    <DropdownMenuItem className="text-yellow-600 font-medium">
+                      Awaiting Approval
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="w-full">Admin Dashboard</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/appointments" className="w-full">Manage Appointments</Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuItem className="text-red-600 cursor-pointer" onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Link to="/auth">
                 <Button variant="outline" className="flex items-center space-x-1">
@@ -94,7 +136,7 @@ const Header = () => {
             className="md:hidden p-2 rounded-md text-gray-600"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            <Menu className="h-6 w-6" />
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
         
@@ -103,6 +145,13 @@ const Header = () => {
           <div className="mt-4 pb-3 space-y-3 md:hidden">
             {isAuthenticated ? (
               <>
+                <div className="border-b pb-2 mb-2">
+                  <div className="px-3 py-2">
+                    <p className="font-medium">Hello, {user?.name}</p>
+                    <p className="text-sm text-gray-500">{user?.email}</p>
+                  </div>
+                </div>
+                
                 {/* Regular user mobile navigation */}
                 {!isAdmin && (
                   <>
@@ -183,7 +232,7 @@ const Header = () => {
                     handleLogout();
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full justify-start px-3 py-2 text-base font-medium text-gray-600 hover:bg-gray-100"
+                  className="w-full justify-start px-3 py-2 text-base font-medium text-red-600 hover:bg-gray-100"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   <span>Logout</span>
