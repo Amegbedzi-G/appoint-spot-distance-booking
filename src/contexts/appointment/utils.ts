@@ -1,11 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Appointment } from './types';
-import { ServiceType } from '../ServiceContext';
+import { Service } from '../ServiceContext';
 
 // Calculate the price of an appointment based on distance and service
 export const calculateAppointmentPrice = (
-  service: ServiceType | undefined, 
+  service: Service | undefined, 
   distance: number
 ): number => {
   if (!service) throw new Error('Service not found');

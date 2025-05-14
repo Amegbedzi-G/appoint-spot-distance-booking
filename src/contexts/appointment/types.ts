@@ -1,5 +1,5 @@
 
-import { ServiceType } from '../ServiceContext';
+import { Service } from '../ServiceContext';
 
 export interface Location {
   address: string;
