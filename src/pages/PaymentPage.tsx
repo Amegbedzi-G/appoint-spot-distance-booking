@@ -4,9 +4,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, AlertCircle, CreditCard, ArrowRight, Bitcoin, Wallet } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
+import PaymentProcessor from '@/components/payment/PaymentProcessor';
 
 const PaymentPage = () => {
   const { user, isAuthenticated, checkApprovalStatus, setPaymentComplete } = useAuth();
@@ -14,7 +15,7 @@ const PaymentPage = () => {
   const location = useLocation();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState('bank');
+  const [paymentMethod, setPaymentMethod] = useState('paystack');
   
   // Get booking data from location state if available
   const bookingData = location.state?.bookingData;
@@ -57,18 +58,12 @@ const PaymentPage = () => {
     checkStatus();
   }, [isAuthenticated, navigate, user, checkApprovalStatus, bookingData]);
 
-  const handleMockPayment = async () => {
-    setIsProcessing(true);
-    
+  const handlePaymentSuccess = async () => {
     try {
-      // Simulate payment processing with a delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       // Update payment status in the user profile
       await setPaymentComplete();
       
-      const paymentMethodName = paymentMethod === 'bank' ? 'Bank' : paymentMethod === 'paypal' ? 'PayPal' : 'Bitcoin';
-      toast.success(`Payment successful via ${paymentMethodName}!`);
+      toast.success(`Payment successful via ${paymentMethod}!`);
       
       // If this was for a new booking, continue with the booking process
       if (bookingData) {
@@ -76,7 +71,7 @@ const PaymentPage = () => {
         navigate('/booking/confirmation', { 
           state: { 
             ...bookingData,
-            paymentMethod: paymentMethodName,
+            paymentMethod: getPaymentMethodName(),
             paymentCompleted: true
           } 
         });
@@ -87,11 +82,24 @@ const PaymentPage = () => {
         }, 1000);
       }
     } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Payment failed. Please try again.');
-    } finally {
-      setIsProcessing(false);
+      console.error('Error updating payment status:', error);
+      toast.error('Error updating payment status');
     }
+  };
+
+  const handlePaymentError = (error: string) => {
+    toast.error(error || 'Payment failed. Please try again.');
+  };
+  
+  const getPaymentMethodName = () => {
+    const methodNames: Record<string, string> = {
+      paystack: 'Paystack',
+      flutterwave: 'Flutterwave',
+      bank: 'Bank',
+      bitcoin: 'Bitcoin'
+    };
+    
+    return methodNames[paymentMethod] || methodNames.bank;
   };
 
   if (isChecking) {
@@ -130,21 +138,6 @@ const PaymentPage = () => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="bg-brand-100 p-2 rounded-full">
-              <CreditCard className="h-6 w-6 text-brand-600" />
-            </div>
-            <div>
-              <p className="font-medium">Payment Required</p>
-              <p className="text-sm text-gray-500">
-                {bookingData 
-                  ? 'Complete payment to confirm your booking' 
-                  : 'Complete a one-time payment to access all services'
-                }
-              </p>
-            </div>
-          </div>
-          
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <div className="flex justify-between items-center mb-2">
               <span className="font-medium">
@@ -160,58 +153,27 @@ const PaymentPage = () => {
             </p>
           </div>
           
-          <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="bank">Bank</TabsTrigger>
-              <TabsTrigger value="paypal">PayPal</TabsTrigger>
-              <TabsTrigger value="bitcoin">Bitcoin</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="bank" className="mt-4">
-              <div className="rounded-lg p-4 border border-gray-200">
-                <p className="text-sm text-gray-700 mb-2">Pay using your bank account</p>
-                <CreditCard className="h-10 w-10 text-gray-400 mx-auto" />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="paypal" className="mt-4">
-              <div className="rounded-lg p-4 border border-gray-200">
-                <p className="text-sm text-gray-700 mb-2">Pay using PayPal</p>
-                <Wallet className="h-10 w-10 text-blue-500 mx-auto" />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="bitcoin" className="mt-4">
-              <div className="rounded-lg p-4 border border-gray-200">
-                <p className="text-sm text-gray-700 mb-2">Pay using Bitcoin</p>
-                <Bitcoin className="h-10 w-10 text-orange-500 mx-auto" />
-              </div>
-            </TabsContent>
-          </Tabs>
+          <PaymentMethodSelector 
+            value={paymentMethod} 
+            onChange={setPaymentMethod} 
+          />
           
           <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200 flex items-start space-x-2">
             <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-yellow-700">
-              This is a demo payment. No actual charges will be processed.
+              This is a demo payment integration. You'll need to configure the Paystack and Flutterwave API keys for production use.
             </p>
           </div>
         </CardContent>
         <CardFooter>
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleMockPayment}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <>Processing<span className="animate-pulse">...</span></>
-            ) : (
-              <>
-                Pay with {paymentMethod === 'bank' ? 'Bank' : paymentMethod === 'paypal' ? 'PayPal' : 'Bitcoin'}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
+          <PaymentProcessor 
+            paymentMethod={paymentMethod}
+            price={price}
+            onSuccess={handlePaymentSuccess}
+            onError={handlePaymentError}
+            isProcessing={isProcessing}
+            setIsProcessing={setIsProcessing}
+          />
         </CardFooter>
       </Card>
     </div>

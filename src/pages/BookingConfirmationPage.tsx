@@ -5,7 +5,6 @@ import { useAppointments } from '@/contexts/appointment';
 import { useServices } from '@/contexts/ServiceContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
 import { CalendarCheck, Clock, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
