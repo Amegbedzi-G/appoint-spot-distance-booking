@@ -70,15 +70,16 @@ const BookServiceForm: React.FC<BookServiceFormProps> = ({
       setMockLocation(newMockLocation);
       
       // Calculate distance between provider and customer
+      // Fix: Adding the address property to match the Location type
       const distance = calculateDistance(
-        { latitude: PROVIDER_LOCATION.latitude, longitude: PROVIDER_LOCATION.longitude },
-        { latitude: newMockLocation.latitude, longitude: newMockLocation.longitude }
+        { address: PROVIDER_LOCATION.address, latitude: PROVIDER_LOCATION.latitude, longitude: PROVIDER_LOCATION.longitude },
+        { address: addressValue, latitude: newMockLocation.latitude, longitude: newMockLocation.longitude }
       );
       
       setMockDistance(distance);
       
       if (service) {
-        // Fixed: Call calculatePrice with the correct number of arguments
+        // Calculate price with the correct number of arguments
         const price = calculatePrice(service.id, distance);
         setMockPrice(price);
       }
