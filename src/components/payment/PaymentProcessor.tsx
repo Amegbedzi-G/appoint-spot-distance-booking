@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2 } from 'lucide-react';
+import { PaystackButton } from '@/components/payment/PaystackButton';
+import { FlutterwaveButton } from '@/components/payment/FlutterwaveButton';
 
 interface PaymentProcessorProps {
   paymentMethod: string;
@@ -10,6 +12,9 @@ interface PaymentProcessorProps {
   onError: (error: string) => void;
   isProcessing: boolean;
   setIsProcessing: (value: boolean) => void;
+  customerEmail: string;
+  customerName: string;
+  reference?: string;
 }
 
 const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ 
@@ -18,18 +23,19 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
   onSuccess, 
   onError,
   isProcessing,
-  setIsProcessing 
+  setIsProcessing,
+  customerEmail,
+  customerName,
+  reference = `tx-${Date.now()}`
 }) => {
-  // This is a mock implementation that will be replaced with actual APIs
-  const handlePayment = async () => {
+  // This is for bank transfer or bitcoin payment methods
+  const handleRegularPayment = async () => {
     setIsProcessing(true);
     
     try {
       // Simulate payment processing delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // In a real implementation, we would integrate with the selected payment gateway here
-      // For now, we'll just simulate a successful payment
       onSuccess();
     } catch (error) {
       console.error('Payment error:', error);
@@ -45,9 +51,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
     }
     
     const methodLabels: Record<string, string> = {
-      paystack: 'Paystack',
-      flutterwave: 'Flutterwave',
-      bank: 'Bank',
+      bank: 'Bank Transfer',
       bitcoin: 'Bitcoin'
     };
     
@@ -59,11 +63,43 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
     );
   };
 
+  // Render appropriate payment button based on selected method
+  if (paymentMethod === 'paystack') {
+    return (
+      <PaystackButton 
+        amount={price * 100} // Convert to lowest currency unit (kobo/cents)
+        email={customerEmail}
+        name={customerName}
+        reference={reference}
+        onSuccess={onSuccess}
+        onError={onError}
+        isProcessing={isProcessing}
+        setIsProcessing={setIsProcessing}
+      />
+    );
+  }
+
+  if (paymentMethod === 'flutterwave') {
+    return (
+      <FlutterwaveButton
+        amount={price}
+        customerEmail={customerEmail}
+        customerName={customerName}
+        reference={reference}
+        onSuccess={onSuccess}
+        onError={onError}
+        isProcessing={isProcessing}
+        setIsProcessing={setIsProcessing}
+      />
+    );
+  }
+
+  // For other payment methods (bank, bitcoin)
   return (
     <Button
       className="w-full"
       size="lg"
-      onClick={handlePayment}
+      onClick={handleRegularPayment}
       disabled={isProcessing}
     >
       {getButtonLabel()}
