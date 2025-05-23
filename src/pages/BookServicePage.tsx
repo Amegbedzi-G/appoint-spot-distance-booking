@@ -76,7 +76,7 @@ const BookServicePage = () => {
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      customerName: user?.displayName || "",
+      customerName: user?.name || "",
       customerEmail: user?.email || "",
       customerPhone: "",
       address: "",
