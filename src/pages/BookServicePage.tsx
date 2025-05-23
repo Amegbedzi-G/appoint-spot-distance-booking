@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useServices } from '@/contexts/ServiceContext';
@@ -110,7 +109,7 @@ const BookServicePage = () => {
       setMockDistance(distance);
       
       if (service) {
-        // Calculate price based on distance
+        // Fix: Remove incorrect parameters here - calculatePrice expects 2 arguments
         const price = calculatePrice(service.id, distance);
         setMockPrice(price);
       }
