@@ -80,7 +80,7 @@ const BookServiceForm: React.FC<BookServiceFormProps> = ({
       setMockDistance(distance);
       
       if (service) {
-        // Calculate price based on service and distance - fixing the function call to match expected parameters
+        // Fixed: Call calculatePrice with the correct number of arguments
         const price = calculatePrice(service.id, distance);
         setMockPrice(price);
       }
