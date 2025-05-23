@@ -71,10 +71,8 @@ const BookServiceForm: React.FC<BookServiceFormProps> = ({
       
       // Calculate distance between provider and customer
       const distance = calculateDistance(
-        PROVIDER_LOCATION.latitude,
-        PROVIDER_LOCATION.longitude,
-        newMockLocation.latitude,
-        newMockLocation.longitude
+        { latitude: PROVIDER_LOCATION.latitude, longitude: PROVIDER_LOCATION.longitude },
+        { latitude: newMockLocation.latitude, longitude: newMockLocation.longitude }
       );
       
       setMockDistance(distance);
