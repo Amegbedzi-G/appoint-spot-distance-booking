@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/auth";
 import { ServiceProvider } from "@/contexts/ServiceContext";
-import { AppointmentProvider } from "@/contexts/AppointmentContext";
+import { AppointmentProvider } from "@/contexts/appointment";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -91,6 +91,14 @@ const App = () => (
                 />
                 <Route 
                   path="/booking/confirmation/:appointmentId" 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><BookingConfirmationPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/booking/confirmation" 
                   element={
                     <ProtectedRoute>
                       <MainLayout><BookingConfirmationPage /></MainLayout>

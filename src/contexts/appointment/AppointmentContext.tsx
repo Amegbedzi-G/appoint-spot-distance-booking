@@ -105,6 +105,11 @@ export const AppointmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const action = status === 'approved' ? 'approved' : 'declined';
       toast.success(`Appointment ${action}. Customer has been notified via email.`);
     }
+
+    // Force update of localStorage to ensure changes are reflected immediately
+    localStorage.setItem('appointmentBookingAppointments', JSON.stringify(
+      appointments.map(app => app.id === id ? { ...app, status, updatedAt: new Date().toISOString() } : app)
+    ));
   };
 
   const getAppointmentById = (id: string) => {

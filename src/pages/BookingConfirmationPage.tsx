@@ -1,170 +1,203 @@
 
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useAppointments } from '@/contexts/AppointmentContext';
+import React, { useEffect, useState } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useAppointments } from '@/contexts/appointment';
 import { useServices } from '@/contexts/ServiceContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, MapPin, Mail, Phone, CheckCircle, ArrowRight } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
+import { CalendarCheck, Clock, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 const BookingConfirmationPage = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
-  const { getAppointmentById } = useAppointments();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { getAppointmentById, bookAppointment } = useAppointments();
   const { getServiceById } = useServices();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBookingComplete, setIsBookingComplete] = useState(false);
   
-  const [appointment, setAppointment] = useState(
-    appointmentId ? getAppointmentById(appointmentId) : undefined
-  );
-  const [service, setService] = useState(
-    appointment ? getServiceById(appointment.serviceId) : undefined
-  );
+  // Use booking data either from URL params or from location state
+  const bookingDataFromState = location.state;
   
   useEffect(() => {
-    if (appointmentId) {
-      const foundAppointment = getAppointmentById(appointmentId);
-      setAppointment(foundAppointment);
-      
-      if (foundAppointment) {
-        const foundService = getServiceById(foundAppointment.serviceId);
-        setService(foundService);
+    const processBooking = async () => {
+      try {
+        // Case 1: We have a booking in progress from the payment page
+        if (bookingDataFromState && bookingDataFromState.paymentCompleted) {
+          // Create the appointment after payment
+          await bookAppointment({
+            serviceId: bookingDataFromState.serviceId,
+            customerName: bookingDataFromState.customerName,
+            customerEmail: bookingDataFromState.customerEmail,
+            customerPhone: bookingDataFromState.customerPhone,
+            date: bookingDataFromState.date,
+            timeSlot: bookingDataFromState.timeSlot,
+            location: bookingDataFromState.location,
+            distance: bookingDataFromState.distance,
+            price: bookingDataFromState.price,
+            notes: bookingDataFromState.notes,
+          });
+          
+          setIsBookingComplete(true);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Case 2: Looking up existing appointment
+        if (appointmentId) {
+          const appointment = getAppointmentById(appointmentId);
+          
+          if (!appointment) {
+            toast.error('Appointment not found');
+            navigate('/');
+            return;
+          }
+          
+          setIsBookingComplete(true);
+          setIsLoading(false);
+          return;
+        }
+        
+        // No valid booking data available
+        toast.error('No booking information found');
+        navigate('/services');
+      } catch (error) {
+        console.error('Error processing booking:', error);
+        toast.error('Failed to process booking');
+        navigate('/services');
       }
-    }
-  }, [appointmentId, getAppointmentById, getServiceById]);
+    };
+    
+    processBooking();
+  }, [appointmentId, bookAppointment, bookingDataFromState, getAppointmentById, navigate]);
   
-  if (!appointment || !service) {
+  if (isLoading) {
     return (
-      <div className="page-container">
-        <div className="text-center py-12">
-          <p className="text-gray-600">Booking not found. Please check your booking reference.</p>
-          <Link to="/">
-            <Button className="mt-4">Go Home</Button>
-          </Link>
+      <div className="page-container py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mx-auto"></div>
+          <p className="mt-4 text-lg">Processing your booking...</p>
         </div>
       </div>
     );
   }
   
-  return (
-    <div className="page-container py-10">
-      <div className="max-w-3xl mx-auto">
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader className="pb-2">
-            <div className="flex justify-center text-green-600 mb-2">
-              <CheckCircle className="h-16 w-16" />
+  // Determine what data to use for display
+  const displayData = bookingDataFromState || 
+    (appointmentId ? getAppointmentById(appointmentId) : null);
+  
+  if (!displayData) {
+    return (
+      <div className="page-container py-12">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className="text-red-600">Booking information not available</p>
+              <Button className="mt-4" onClick={() => navigate('/services')}>
+                Browse Services
+              </Button>
             </div>
-            <CardTitle className="text-center text-2xl text-green-800">
-              Booking Request Submitted!
-            </CardTitle>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  const service = getServiceById(displayData.serviceId);
+  
+  return (
+    <div className="page-container py-12">
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl">Booking Confirmed!</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-center text-gray-600 mb-6">
-              Your booking request has been successfully submitted and is pending approval. 
-              You will receive an email notification when the admin approves your booking.
-            </p>
+          <CardContent className="pt-6">
+            <div className="text-center mb-6">
+              <p className="text-gray-600">
+                Your booking has been confirmed and is now pending approval. 
+                You will receive a notification once it has been approved.
+              </p>
+            </div>
             
-            <div className="bg-white rounded-lg p-6 border border-green-200 mb-6">
-              <h3 className="font-medium mb-4 text-lg">Booking Details</h3>
+            <div className="bg-gray-50 rounded-lg p-6 border mb-6">
+              <h3 className="font-medium text-lg mb-4">Booking Details</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <Calendar className="h-5 w-5 mr-3 text-brand-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500">Appointment Date</p>
-                      <p className="font-medium">{format(new Date(appointment.date), 'MMMM d, yyyy')}</p>
-                    </div>
+              <div className="space-y-4">
+                <div className="flex items-start">
+                  <div className="min-w-[24px] mr-3">
+                    <CalendarCheck className="h-5 w-5 text-brand-600" />
                   </div>
-                  
-                  <div className="flex items-start">
-                    <Clock className="h-5 w-5 mr-3 text-brand-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500">Time Slot</p>
-                      <p className="font-medium">{appointment.timeSlot}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <MapPin className="h-5 w-5 mr-3 text-brand-500 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500">Service Location</p>
-                      <p className="font-medium">{appointment.location.address}</p>
-                    </div>
+                  <div>
+                    <p className="font-medium">Service</p>
+                    <p className="text-gray-600">{service?.name || 'Unknown Service'}</p>
                   </div>
                 </div>
                 
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-500">Service</p>
-                    <p className="font-medium">{service.name}</p>
+                <div className="flex items-start">
+                  <div className="min-w-[24px] mr-3">
+                    <Clock className="h-5 w-5 text-brand-600" />
                   </div>
-                  
                   <div>
-                    <p className="text-sm text-gray-500">Duration</p>
-                    <p className="font-medium">{service.duration} minutes</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-500">Total Price</p>
-                    <p className="font-medium">${appointment.price.toFixed(2)}</p>
-                    <p className="text-xs text-gray-500">
-                      (Base: ${service.basePrice.toFixed(2)} + Distance fee: ${(appointment.distance * service.pricePerKm).toFixed(2)})
+                    <p className="font-medium">Date & Time</p>
+                    <p className="text-gray-600">
+                      {displayData.date} @ {displayData.timeSlot}
                     </p>
                   </div>
                 </div>
-              </div>
-              
-              <hr className="my-4 border-gray-200" />
-              
-              <div>
-                <h4 className="font-medium mb-2">Contact Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="flex items-center">
-                    <span className="font-medium mr-2">Name:</span>
-                    <span>{appointment.customerName}</span>
+                
+                <div className="flex items-start">
+                  <div className="min-w-[24px] mr-3">
+                    <MapPin className="h-5 w-5 text-brand-600" />
                   </div>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-1 text-gray-400" />
-                    <span>{appointment.customerEmail}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-1 text-gray-400" />
-                    <span>{appointment.customerPhone}</span>
+                  <div>
+                    <p className="font-medium">Location</p>
+                    <p className="text-gray-600">{displayData.location.address}</p>
                   </div>
                 </div>
-              </div>
-              
-              {appointment.notes && (
-                <>
-                  <hr className="my-4 border-gray-200" />
-                  <div>
-                    <h4 className="font-medium mb-2">Additional Notes</h4>
-                    <p className="text-gray-700">{appointment.notes}</p>
+                
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Total Paid:</span>
+                    <span className="font-bold">${displayData.price.toFixed(2)}</span>
                   </div>
-                </>
-              )}
+                  {bookingDataFromState?.paymentMethod && (
+                    <div className="text-xs text-gray-500 text-right mt-1">
+                      via {bookingDataFromState.paymentMethod}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             
-            <div className="text-center space-y-4">
-              <p className="text-sm text-gray-600">
-                Reference ID: <span className="font-mono font-medium">{appointment.id}</span>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                <span className="font-medium">What's next?</span> Your booking is now pending approval from our administrators. 
+                You will receive an email notification once your appointment is approved or declined. 
+                You can also check the status of your appointment on your dashboard.
               </p>
-              
-              <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <Link to="/">
-                  <Button>
-                    Return Home
-                  </Button>
-                </Link>
-                <Link to="/services">
-                  <Button variant="outline">
-                    Browse More Services
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
             </div>
           </CardContent>
+          <CardFooter className="flex flex-col sm:flex-row gap-2 border-t pt-6">
+            <Button 
+              variant="outline" 
+              className="w-full sm:w-auto"
+              onClick={() => navigate('/')}
+            >
+              View Dashboard
+            </Button>
+            <Button 
+              className="w-full sm:w-auto"
+              onClick={() => navigate('/services')}
+            >
+              Book Another Service <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </div>

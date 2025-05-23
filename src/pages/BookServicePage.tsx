@@ -1,376 +1,378 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useServices } from '@/contexts/ServiceContext';
-import { useAppointments, PROVIDER_LOCATION } from '@/contexts/AppointmentContext';
-import { geocodeAddress, calculateDistance } from '@/utils/distanceUtils';
+import { useAppointments, PROVIDER_LOCATION } from '@/contexts/appointment';
+import { useAuth } from '@/contexts/auth';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
-import { MapPin, Calendar as CalendarIcon, Clock, DollarSign } from 'lucide-react';
-import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { CalendarIcon, MapPin, Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { calculateDistance } from '@/utils/distanceUtils';
 
-const timeSlots = [
-  '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', 
-  '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'
+// Form schema
+const bookingFormSchema = z.object({
+  customerName: z.string().min(2, "Name must be at least 2 characters"),
+  customerEmail: z.string().email("Please enter a valid email"),
+  customerPhone: z.string().min(5, "Please enter a valid phone number"),
+  address: z.string().min(5, "Address must be at least 5 characters"),
+  date: z.date({
+    required_error: "Please select a date",
+  }),
+  timeSlot: z.string({
+    required_error: "Please select a time slot",
+  }),
+  notes: z.string().optional(),
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
+const TIME_SLOTS = [
+  '9:00 AM - 11:00 AM',
+  '11:00 AM - 1:00 PM',
+  '1:00 PM - 3:00 PM',
+  '3:00 PM - 5:00 PM',
 ];
 
 const BookServicePage = () => {
   const { serviceId } = useParams<{ serviceId: string }>();
   const navigate = useNavigate();
-  const { getServiceById } = useServices();
-  const { calculatePrice, bookAppointment } = useAppointments();
+  const { services, getServiceById } = useServices();
+  const { bookAppointment, calculatePrice } = useAppointments();
+  const { user, isAuthenticated } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mockLocation, setMockLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mockDistance, setMockDistance] = useState<number>(0);
+  const [mockPrice, setMockPrice] = useState<number>(0);
   
-  const [service, setService] = useState(serviceId ? getServiceById(serviceId) : undefined);
-  const [date, setDate] = useState<Date | undefined>(undefined);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [notes, setNotes] = useState('');
-  const [customerLocation, setCustomerLocation] = useState<any>(null);
-  const [distance, setDistance] = useState<number | null>(null);
-  const [price, setPrice] = useState<number | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  
-  // Handle invalid service ID
+  const service = serviceId ? getServiceById(serviceId) : null;
+
   useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/auth', { state: { from: `/book/${serviceId}` } });
+    }
+    
     if (!service) {
       toast.error("Service not found");
       navigate('/services');
     }
-  }, [service, navigate]);
-  
-  // Calculate distance and price when address changes
-  const handleAddressChange = async (newAddress: string) => {
-    setAddress(newAddress);
-    setCustomerLocation(null);
-    setDistance(null);
-    setPrice(null);
-  };
-  
-  const handleGetQuote = async () => {
-    if (!address.trim() || !service) return;
     
-    try {
-      setIsProcessing(true);
-      // Geocode address to get coordinates
-      const location = await geocodeAddress(address);
-      setCustomerLocation(location);
-      
-      // Calculate distance between customer and provider
-      const distanceToCustomer = calculateDistance(PROVIDER_LOCATION, location);
-      setDistance(distanceToCustomer);
-      
-      // Calculate price based on service and distance
-      const estimatedPrice = calculatePrice(service.id, distanceToCustomer);
-      setPrice(estimatedPrice);
-      
-      toast.success("Quote generated successfully");
-    } catch (error) {
-      console.error("Error getting quote:", error);
-      toast.error("Failed to generate quote. Please try again.");
-    } finally {
-      setIsProcessing(false);
+    if (user?.isApproved === false) {
+      toast.error("Your account needs to be approved before booking");
+      navigate('/');
     }
-  };
+  }, [isAuthenticated, navigate, service, serviceId, user]);
+
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues: {
+      customerName: user?.displayName || "",
+      customerEmail: user?.email || "",
+      customerPhone: "",
+      address: "",
+      notes: "",
+    },
+  });
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!service || !date || !selectedTimeSlot || !customerLocation || distance === null || price === null) {
-      toast.error("Please complete all required fields");
+  // Generate mock location and calculate mock distance when address changes
+  const addressValue = form.watch('address');
+  useEffect(() => {
+    if (addressValue.length > 5) {
+      // Generate a random location within 20km of provider
+      const randomLat = PROVIDER_LOCATION.latitude + (Math.random() - 0.5) * 0.2; // approx 22km latitude range
+      const randomLng = PROVIDER_LOCATION.longitude + (Math.random() - 0.5) * 0.2; // approx 22km longitude range
+      
+      const newMockLocation = {
+        latitude: randomLat,
+        longitude: randomLng,
+      };
+      
+      setMockLocation(newMockLocation);
+      
+      // Calculate distance between provider and customer
+      const distance = calculateDistance(
+        PROVIDER_LOCATION.latitude,
+        PROVIDER_LOCATION.longitude,
+        newMockLocation.latitude,
+        newMockLocation.longitude
+      );
+      
+      setMockDistance(distance);
+      
+      if (service) {
+        // Calculate price based on distance
+        const price = calculatePrice(service.id, distance);
+        setMockPrice(price);
+      }
+    }
+  }, [addressValue, calculatePrice, service]);
+
+  const onSubmit = async (data: BookingFormValues) => {
+    if (!service || !mockLocation || !user) {
+      toast.error("Missing required information");
       return;
     }
-    
+
+    setIsSubmitting(true);
+
     try {
-      setIsProcessing(true);
-      
-      const appointment = await bookAppointment({
+      // Prepare booking data without creating the appointment yet
+      const bookingData = {
         serviceId: service.id,
-        customerName,
-        customerEmail,
-        customerPhone,
-        date: format(date, 'yyyy-MM-dd'),
-        timeSlot: selectedTimeSlot,
-        location: customerLocation,
-        distance,
-        price,
-        notes,
-      });
-      
-      navigate(`/booking/confirmation/${appointment.id}`);
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        date: format(data.date, 'yyyy-MM-dd'),
+        timeSlot: data.timeSlot,
+        location: {
+          address: data.address,
+          latitude: mockLocation.latitude,
+          longitude: mockLocation.longitude,
+        },
+        distance: mockDistance,
+        price: mockPrice,
+        notes: data.notes || undefined,
+      };
+
+      // Navigate to payment page with booking data
+      navigate('/payment', { state: { bookingData } });
     } catch (error) {
-      console.error("Error booking appointment:", error);
-      toast.error("Failed to book appointment. Please try again.");
-      setIsProcessing(false);
+      console.error('Error preparing booking:', error);
+      toast.error('Error preparing your booking. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
+
   if (!service) {
     return (
-      <div className="page-container">
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading service details...</p>
+      <div className="page-container py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mx-auto"></div>
+          <p className="mt-4 text-lg">Loading service...</p>
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div className="page-container py-10">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Book {service.name}</h1>
+    <div className="page-container py-12">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Book {service.name}</h1>
+          <p className="text-gray-600">{service.description}</p>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Service Info Card */}
-          <Card className="md:col-span-1 h-fit">
-            <CardHeader>
-              <CardTitle>Service Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <img 
-                src={service.image} 
-                alt={service.name} 
-                className="w-full h-40 object-cover rounded-md"
-              />
-              
-              <h3 className="font-semibold text-xl">{service.name}</h3>
-              <p className="text-gray-600 text-sm">{service.description}</p>
-              
-              <div className="flex items-center text-gray-700">
-                <DollarSign className="h-4 w-4 mr-1 text-brand-500" />
-                <span className="font-medium">${service.basePrice}</span>
-                <span className="text-xs ml-1">(base price)</span>
-              </div>
-              
-              <div className="flex items-center text-gray-700">
-                <Clock className="h-4 w-4 mr-1 text-brand-500" />
-                <span>{service.duration} min</span>
-              </div>
-              
-              <div className="flex items-center text-gray-700">
-                <MapPin className="h-4 w-4 mr-1 text-brand-500" />
-                <span className="text-xs">${service.pricePerKm}/km distance fee</span>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Booking Form */}
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Booking Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Step 1: Personal Information */}
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Personal Information</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name *
-                      </label>
-                      <Input
-                        id="name"
-                        placeholder="Enter your full name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                          Email *
-                        </label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="Enter your email"
-                          value={customerEmail}
-                          onChange={(e) => setCustomerEmail(e.target.value)}
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                          Phone Number *
-                        </label>
-                        <Input
-                          id="phone"
-                          placeholder="Enter your phone number"
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Step 2: Address & Quote */}
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Service Location</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                        Your Address *
-                      </label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="address"
-                          placeholder="Enter your full address"
-                          value={address}
-                          onChange={(e) => handleAddressChange(e.target.value)}
-                          required
-                        />
-                        <Button 
-                          type="button" 
-                          onClick={handleGetQuote}
-                          disabled={!address.trim() || isProcessing}
-                        >
-                          Get Quote
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {isProcessing && (
-                      <div className="text-center py-4">
-                        <div className="animate-spin h-6 w-6 border-4 border-brand-500 border-t-transparent rounded-full mx-auto"></div>
-                        <p className="mt-2 text-sm text-gray-600">Calculating...</p>
-                      </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Booking Details</CardTitle>
+            <CardDescription>Please fill out the form below to book this service.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    
-                    {distance !== null && price !== null && (
-                      <div className="bg-brand-50 p-4 rounded-md">
-                        <h4 className="font-medium">Price Quote:</h4>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span>Base Price:</span>
-                            <span>${service.basePrice.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Distance Fee ({distance} km × ${service.pricePerKm}/km):</span>
-                            <span>${(distance * service.pricePerKm).toFixed(2)}</span>
-                          </div>
-                          <div className="border-t pt-1 font-medium flex justify-between">
-                            <span>Total Price:</span>
-                            <span>${price.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="customerEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your email" type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </div>
-                </div>
-                
-                {/* Step 3: Date & Time */}
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Appointment Date & Time</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date *
-                      </label>
-                      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className="w-full justify-start text-left font-normal"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date ? format(date, "PPP") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={date}
-                            onSelect={(newDate) => {
-                              setDate(newDate);
-                              setCalendarOpen(false);
-                            }}
-                            disabled={(date) =>
-                              date < new Date(new Date().setHours(0, 0, 0, 0)) ||
-                              date > new Date(new Date().setMonth(new Date().getMonth() + 3))
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time Slot *
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {timeSlots.map((time) => (
-                          <Button
-                            key={time}
-                            type="button"
-                            variant={selectedTimeSlot === time ? "default" : "outline"}
-                            className="text-sm py-1"
-                            onClick={() => setSelectedTimeSlot(time)}
-                          >
-                            {time}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Step 4: Additional Notes */}
-                <div>
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                    Additional Notes <span className="text-gray-400">(Optional)</span>
-                  </label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Any special instructions or requirements"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="customerPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your phone number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Service Address</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input placeholder="Enter your address" {...field} />
+                            {field.value.length > 5 && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600">
+                                <MapPin className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => {
+                                // Disable dates in the past
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                return date < today;
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="timeSlot"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Time Slot</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a time slot" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TIME_SLOTS.map((slot) => (
+                              <SelectItem key={slot} value={slot}>
+                                {slot}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
                 
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Special Instructions (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Any special requirements or notes" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {addressValue.length > 5 && mockDistance > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <h3 className="font-medium mb-2">Service Summary</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>Service:</div>
+                      <div className="font-medium">{service.name}</div>
+                      
+                      <div>Base Price:</div>
+                      <div className="font-medium">${service.basePrice.toFixed(2)}</div>
+                      
+                      <div>Distance:</div>
+                      <div className="font-medium">{mockDistance.toFixed(1)} km</div>
+                      
+                      <div>Distance Fee:</div>
+                      <div className="font-medium">${(mockDistance * service.pricePerKm).toFixed(2)}</div>
+                      
+                      <div className="text-lg">Total:</div>
+                      <div className="text-lg font-bold">${mockPrice.toFixed(2)}</div>
+                    </div>
+                  </div>
+                )}
+                
                 <div>
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    size="lg"
-                    disabled={
-                      isProcessing || 
-                      !customerName || 
-                      !customerEmail || 
-                      !customerPhone || 
-                      !address || 
-                      !date || 
-                      !selectedTimeSlot || 
-                      distance === null || 
-                      price === null
-                    }
-                  >
-                    Submit Booking Request
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Proceed to Payment"
+                    )}
                   </Button>
-                  <p className="mt-2 text-xs text-gray-500 text-center">
-                    Your booking will be reviewed by our admin. Payment will only be required after approval.
-                  </p>
                 </div>
               </form>
-            </CardContent>
-          </Card>
-        </div>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex justify-between border-t pt-6">
+            <Button variant="outline" onClick={() => navigate('/services')}>
+              Back to Services
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

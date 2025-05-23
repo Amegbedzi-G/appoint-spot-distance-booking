@@ -1,24 +1,26 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, AlertCircle, CreditCard, ArrowRight, Bitcoin, Wallet } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { useAppointments } from '@/contexts/appointment';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const PaymentPage = () => {
   const { user, isAuthenticated, checkApprovalStatus, setPaymentComplete } = useAuth();
-  const { appointments } = useAppointments();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('bank');
-  const [hasApprovedAppointments, setHasApprovedAppointments] = useState(false);
+  
+  // Get booking data from location state if available
+  const bookingData = location.state?.bookingData;
+  const price = bookingData?.price || 49.99;
 
-  // Check authentication and approval status when component mounts
+  // Check authentication when component mounts
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/auth', { state: { from: '/payment' } });
@@ -29,14 +31,6 @@ const PaymentPage = () => {
       setIsChecking(true);
 
       try {
-        // Check if user has approved appointments
-        if (user && user.email) {
-          const userAppointments = appointments.filter(
-            appointment => appointment.customerEmail === user.email && appointment.status === 'approved'
-          );
-          setHasApprovedAppointments(userAppointments.length > 0);
-        }
-
         // Check if the user's account is approved
         const isApproved = await checkApprovalStatus();
         
@@ -45,14 +39,13 @@ const PaymentPage = () => {
           navigate('/');
           return;
         }
-
-        // If user has already paid and has no approved appointments needing payment
-        if (user?.hasPaid && !hasApprovedAppointments) {
+        
+        // If there's no booking in progress and user has already paid
+        if (!bookingData && user?.hasPaid) {
           toast.info('You have already completed payment');
           navigate('/services');
           return;
         }
-        
       } catch (error) {
         console.error('Error checking status:', error);
         toast.error('Error checking your account status');
@@ -62,7 +55,7 @@ const PaymentPage = () => {
     };
 
     checkStatus();
-  }, [isAuthenticated, navigate, user, checkApprovalStatus, appointments, hasApprovedAppointments]);
+  }, [isAuthenticated, navigate, user, checkApprovalStatus, bookingData]);
 
   const handleMockPayment = async () => {
     setIsProcessing(true);
@@ -74,12 +67,25 @@ const PaymentPage = () => {
       // Update payment status in the user profile
       await setPaymentComplete();
       
-      toast.success(`Payment successful via ${paymentMethod === 'bank' ? 'Bank' : paymentMethod === 'paypal' ? 'PayPal' : 'Bitcoin'}!`);
+      const paymentMethodName = paymentMethod === 'bank' ? 'Bank' : paymentMethod === 'paypal' ? 'PayPal' : 'Bitcoin';
+      toast.success(`Payment successful via ${paymentMethodName}!`);
       
-      // Redirect to services page after successful payment
-      setTimeout(() => {
-        navigate('/services');
-      }, 1000);
+      // If this was for a new booking, continue with the booking process
+      if (bookingData) {
+        // Navigate to booking confirmation with the booking data
+        navigate('/booking/confirmation', { 
+          state: { 
+            ...bookingData,
+            paymentMethod: paymentMethodName,
+            paymentCompleted: true
+          } 
+        });
+      } else {
+        // Regular payment flow - redirect to services
+        setTimeout(() => {
+          navigate('/services');
+        }, 1000);
+      }
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Payment failed. Please try again.');
@@ -99,111 +105,19 @@ const PaymentPage = () => {
     );
   }
 
-  // If user doesn't have any approved appointments and hasn't paid registration fee
-  if (!hasApprovedAppointments && !user?.hasPaid) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Complete Your Registration</CardTitle>
-            <CardDescription>Make a one-time payment to access all services.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="bg-green-100 p-2 rounded-full">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium">Admin Approval</p>
-                <p className="text-sm text-gray-500">Your account has been approved by an administrator</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="bg-brand-100 p-2 rounded-full">
-                <CreditCard className="h-6 w-6 text-brand-600" />
-              </div>
-              <div>
-                <p className="font-medium">Payment Required</p>
-                <p className="text-sm text-gray-500">Complete a one-time payment to access all services</p>
-              </div>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-medium">Registration Fee</span>
-                <span className="font-bold">$49.99</span>
-              </div>
-              <p className="text-sm text-gray-500">
-                This payment provides access to all services and features.
-              </p>
-            </div>
-            
-            <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="bank">Bank</TabsTrigger>
-                <TabsTrigger value="paypal">PayPal</TabsTrigger>
-                <TabsTrigger value="bitcoin">Bitcoin</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="bank" className="mt-4">
-                <div className="rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-700 mb-2">Pay using your bank account</p>
-                  <CreditCard className="h-10 w-10 text-gray-400 mx-auto" />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="paypal" className="mt-4">
-                <div className="rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-700 mb-2">Pay using PayPal</p>
-                  <Wallet className="h-10 w-10 text-blue-500 mx-auto" />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="bitcoin" className="mt-4">
-                <div className="rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-700 mb-2">Pay using Bitcoin</p>
-                  <Bitcoin className="h-10 w-10 text-orange-500 mx-auto" />
-                </div>
-              </TabsContent>
-            </Tabs>
-            
-            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200 flex items-start space-x-2">
-              <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-yellow-700">
-                This is a demo payment. No actual charges will be processed.
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleMockPayment}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>Processing<span className="animate-pulse">...</span></>
-              ) : (
-                <>
-                  Pay with {paymentMethod === 'bank' ? 'Bank' : paymentMethod === 'paypal' ? 'PayPal' : 'Bitcoin'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
-
-  // If user has approved appointments that need payment
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Complete Your Payment</CardTitle>
-          <CardDescription>Your appointment has been approved! Make a payment to confirm.</CardDescription>
+          <CardTitle className="text-2xl">
+            {bookingData ? 'Complete Your Booking' : 'Complete Your Registration'}
+          </CardTitle>
+          <CardDescription>
+            {bookingData 
+              ? 'Make a payment to confirm your booking.' 
+              : 'Make a one-time payment to access all services.'
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center space-x-4">
@@ -211,8 +125,8 @@ const PaymentPage = () => {
               <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <p className="font-medium">Appointment Approved</p>
-              <p className="text-sm text-gray-500">Your appointment has been approved by an administrator</p>
+              <p className="font-medium">Admin Approval</p>
+              <p className="text-sm text-gray-500">Your account has been approved by an administrator</p>
             </div>
           </div>
           
@@ -222,17 +136,27 @@ const PaymentPage = () => {
             </div>
             <div>
               <p className="font-medium">Payment Required</p>
-              <p className="text-sm text-gray-500">Complete payment to confirm your appointment</p>
+              <p className="text-sm text-gray-500">
+                {bookingData 
+                  ? 'Complete payment to confirm your booking' 
+                  : 'Complete a one-time payment to access all services'
+                }
+              </p>
             </div>
           </div>
           
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <div className="flex justify-between items-center mb-2">
-              <span className="font-medium">Service Fee</span>
-              <span className="font-bold">$49.99</span>
+              <span className="font-medium">
+                {bookingData ? 'Booking Fee' : 'Registration Fee'}
+              </span>
+              <span className="font-bold">${price.toFixed(2)}</span>
             </div>
             <p className="text-sm text-gray-500">
-              This payment confirms your approved appointment.
+              {bookingData 
+                ? 'This payment confirms your booking.'
+                : 'This payment provides access to all services and features.'
+              }
             </p>
           </div>
           
