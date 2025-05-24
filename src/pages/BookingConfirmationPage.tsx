@@ -1,12 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppointments } from '@/contexts/appointment';
 import { useServices } from '@/contexts/ServiceContext';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarCheck, Clock, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import BookingConfirmationHeader from '@/components/booking/BookingConfirmationHeader';
+import BookingDetailsCard from '@/components/booking/BookingDetailsCard';
+import NextStepsInfo from '@/components/booking/NextStepsInfo';
+import ConfirmationActions from '@/components/booking/ConfirmationActions';
 
 const BookingConfirmationPage = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
@@ -84,12 +88,7 @@ const BookingConfirmationPage = () => {
     <div className="page-container py-12">
       <div className="max-w-2xl mx-auto">
         <Card>
-          <CardHeader className="text-center pb-2">
-            <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl">Booking Confirmed!</CardTitle>
-          </CardHeader>
+          <BookingConfirmationHeader />
           <CardContent className="pt-6">
             <div className="text-center mb-6">
               <p className="text-gray-600">
@@ -98,77 +97,15 @@ const BookingConfirmationPage = () => {
               </p>
             </div>
             
-            <div className="bg-gray-50 rounded-lg p-6 border mb-6">
-              <h3 className="font-medium text-lg mb-4">Booking Details</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-start">
-                  <div className="min-w-[24px] mr-3">
-                    <CalendarCheck className="h-5 w-5 text-brand-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Service</p>
-                    <p className="text-gray-600">{service?.name || 'Unknown Service'}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="min-w-[24px] mr-3">
-                    <Clock className="h-5 w-5 text-brand-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Date & Time</p>
-                    <p className="text-gray-600">
-                      {appointment.date} @ {appointment.timeSlot}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="min-w-[24px] mr-3">
-                    <MapPin className="h-5 w-5 text-brand-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Location</p>
-                    <p className="text-gray-600">{appointment.location.address}</p>
-                  </div>
-                </div>
-                
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Total Paid:</span>
-                    <span className="font-bold">${appointment.price.toFixed(2)}</span>
-                  </div>
-                  <div className="text-xs text-gray-500 text-right mt-1">
-                    via {paymentMethod}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <BookingDetailsCard 
+              appointment={appointment}
+              service={service}
+              paymentMethod={paymentMethod}
+            />
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                <span className="font-medium">What's next?</span> Your booking is now pending approval from our administrators. 
-                You will receive an email notification once your appointment is approved or declined. 
-                You can also check the status of your appointment on your dashboard.
-              </p>
-            </div>
+            <NextStepsInfo />
           </CardContent>
-          <CardFooter className="flex flex-col sm:flex-row gap-2 border-t pt-6">
-            <Button 
-              variant="outline" 
-              className="w-full sm:w-auto"
-              onClick={() => navigate('/')}
-            >
-              View Dashboard
-            </Button>
-            <Button 
-              className="w-full sm:w-auto"
-              onClick={() => navigate('/services')}
-            >
-              Book Another Service <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardFooter>
+          <ConfirmationActions />
         </Card>
       </div>
     </div>
