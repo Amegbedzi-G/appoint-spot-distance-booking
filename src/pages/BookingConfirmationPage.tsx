@@ -12,82 +12,56 @@ const BookingConfirmationPage = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { getAppointmentById, bookAppointment } = useAppointments();
+  const { getAppointmentById } = useAppointments();
   const { getServiceById } = useServices();
   const [isLoading, setIsLoading] = useState(true);
-  const [isBookingComplete, setIsBookingComplete] = useState(false);
+  const [appointment, setAppointment] = useState(null);
   
-  // Use booking data either from URL params or from location state
-  const bookingDataFromState = location.state;
+  // Get payment method from location state if available
+  const paymentMethod = location.state?.paymentMethod || 'Unknown';
   
   useEffect(() => {
-    const processBooking = async () => {
+    const loadAppointment = () => {
       try {
-        // Case 1: We have a booking in progress from the payment page
-        if (bookingDataFromState && bookingDataFromState.paymentCompleted) {
-          // Create the appointment after payment
-          await bookAppointment({
-            serviceId: bookingDataFromState.serviceId,
-            customerName: bookingDataFromState.customerName,
-            customerEmail: bookingDataFromState.customerEmail,
-            customerPhone: bookingDataFromState.customerPhone,
-            date: bookingDataFromState.date,
-            timeSlot: bookingDataFromState.timeSlot,
-            location: bookingDataFromState.location,
-            distance: bookingDataFromState.distance,
-            price: bookingDataFromState.price,
-            notes: bookingDataFromState.notes,
-          });
-          
-          setIsBookingComplete(true);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Case 2: Looking up existing appointment
         if (appointmentId) {
-          const appointment = getAppointmentById(appointmentId);
+          const foundAppointment = getAppointmentById(appointmentId);
           
-          if (!appointment) {
+          if (!foundAppointment) {
             toast.error('Appointment not found');
-            navigate('/');
+            navigate('/services');
             return;
           }
           
-          setIsBookingComplete(true);
-          setIsLoading(false);
+          setAppointment(foundAppointment);
+        } else {
+          toast.error('No appointment ID provided');
+          navigate('/services');
           return;
         }
-        
-        // No valid booking data available
-        toast.error('No booking information found');
-        navigate('/services');
       } catch (error) {
-        console.error('Error processing booking:', error);
-        toast.error('Failed to process booking');
+        console.error('Error loading appointment:', error);
+        toast.error('Error loading appointment details');
         navigate('/services');
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    processBooking();
-  }, [appointmentId, bookAppointment, bookingDataFromState, getAppointmentById, navigate]);
+    loadAppointment();
+  }, [appointmentId, getAppointmentById, navigate]);
   
   if (isLoading) {
     return (
       <div className="page-container py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mx-auto"></div>
-          <p className="mt-4 text-lg">Processing your booking...</p>
+          <p className="mt-4 text-lg">Loading your booking details...</p>
         </div>
       </div>
     );
   }
   
-  // Determine what data to use for display
-  const displayData = bookingDataFromState || 
-    (appointmentId ? getAppointmentById(appointmentId) : null);
-  
-  if (!displayData) {
+  if (!appointment) {
     return (
       <div className="page-container py-12">
         <Card>
@@ -104,7 +78,7 @@ const BookingConfirmationPage = () => {
     );
   }
   
-  const service = getServiceById(displayData.serviceId);
+  const service = getServiceById(appointment.serviceId);
   
   return (
     <div className="page-container py-12">
@@ -145,7 +119,7 @@ const BookingConfirmationPage = () => {
                   <div>
                     <p className="font-medium">Date & Time</p>
                     <p className="text-gray-600">
-                      {displayData.date} @ {displayData.timeSlot}
+                      {appointment.date} @ {appointment.timeSlot}
                     </p>
                   </div>
                 </div>
@@ -156,20 +130,18 @@ const BookingConfirmationPage = () => {
                   </div>
                   <div>
                     <p className="font-medium">Location</p>
-                    <p className="text-gray-600">{displayData.location.address}</p>
+                    <p className="text-gray-600">{appointment.location.address}</p>
                   </div>
                 </div>
                 
                 <div className="border-t pt-4 mt-4">
                   <div className="flex justify-between">
                     <span className="font-medium">Total Paid:</span>
-                    <span className="font-bold">${displayData.price.toFixed(2)}</span>
+                    <span className="font-bold">${appointment.price.toFixed(2)}</span>
                   </div>
-                  {bookingDataFromState?.paymentMethod && (
-                    <div className="text-xs text-gray-500 text-right mt-1">
-                      via {bookingDataFromState.paymentMethod}
-                    </div>
-                  )}
+                  <div className="text-xs text-gray-500 text-right mt-1">
+                    via {paymentMethod}
+                  </div>
                 </div>
               </div>
             </div>

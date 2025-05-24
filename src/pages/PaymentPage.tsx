@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
+import { useAppointments } from '@/contexts/appointment';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, AlertCircle } from 'lucide-react';
@@ -11,6 +12,7 @@ import PaymentProcessor from '@/components/payment/PaymentProcessor';
 
 const PaymentPage = () => {
   const { user, isAuthenticated, checkApprovalStatus, setPaymentComplete } = useAuth();
+  const { bookAppointment } = useAppointments();
   const navigate = useNavigate();
   const location = useLocation();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -64,35 +66,55 @@ const PaymentPage = () => {
 
   const handlePaymentSuccess = async () => {
     try {
+      setIsProcessing(true);
+      
       // Update payment status in the user profile
       await setPaymentComplete();
       
-      toast.success(`Payment successful via ${paymentMethod}!`);
-      
-      // If this was for a new booking, continue with the booking process
+      // If this was for a new booking, create the appointment
       if (bookingData) {
-        // Navigate to booking confirmation with the booking data
-        navigate('/booking/confirmation', { 
+        console.log('Creating appointment with booking data:', bookingData);
+        
+        const newAppointment = await bookAppointment({
+          serviceId: bookingData.serviceId,
+          customerName: bookingData.customerName,
+          customerEmail: bookingData.customerEmail,
+          customerPhone: bookingData.customerPhone,
+          date: bookingData.date,
+          timeSlot: bookingData.timeSlot,
+          location: bookingData.location,
+          distance: bookingData.distance,
+          price: bookingData.price,
+          notes: bookingData.notes,
+        });
+        
+        toast.success(`Payment successful via ${getPaymentMethodName()}!`);
+        
+        // Navigate to booking confirmation with the appointment ID
+        navigate(`/booking/confirmation/${newAppointment.id}`, { 
           state: { 
-            ...bookingData,
             paymentMethod: getPaymentMethodName(),
             paymentCompleted: true
           } 
         });
       } else {
         // Regular payment flow - redirect to services
+        toast.success(`Payment successful via ${getPaymentMethodName()}!`);
         setTimeout(() => {
           navigate('/services');
         }, 1000);
       }
     } catch (error) {
-      console.error('Error updating payment status:', error);
-      toast.error('Error updating payment status');
+      console.error('Error processing payment:', error);
+      toast.error('Error processing payment. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handlePaymentError = (error: string) => {
     toast.error(error || 'Payment failed. Please try again.');
+    setIsProcessing(false);
   };
   
   const getPaymentMethodName = () => {
