@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
 import { useAppointments } from '@/contexts/appointment';
@@ -11,12 +11,11 @@ import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 import PaymentProcessor from '@/components/payment/PaymentProcessor';
 
 const PaymentPage = () => {
-  const { user, isAuthenticated, checkApprovalStatus, setPaymentComplete } = useAuth();
+  const { user, setPaymentComplete } = useAuth();
   const { bookAppointment } = useAppointments();
   const navigate = useNavigate();
   const location = useLocation();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('paystack');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   
@@ -28,42 +27,11 @@ const PaymentPage = () => {
   const customerEmail = bookingData?.customerEmail || user?.email || '';
   const customerName = bookingData?.customerName || user?.name || '';
 
-  // Check authentication when component mounts
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/auth', { state: { from: '/payment' } });
-      return;
-    }
-
-    const checkStatus = async () => {
-      setIsChecking(true);
-
-      try {
-        // Check if the user's account is approved
-        const isApproved = await checkApprovalStatus();
-        
-        if (!isApproved) {
-          toast.error('Your account has not been approved yet');
-          navigate('/');
-          return;
-        }
-        
-        // If there's no booking in progress and user has already paid
-        if (!bookingData && user?.hasPaid) {
-          toast.info('You have already completed payment');
-          navigate('/services');
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking status:', error);
-        toast.error('Error checking your account status');
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    checkStatus();
-  }, [isAuthenticated, navigate, user, checkApprovalStatus, bookingData]);
+  // Check if user is authenticated
+  if (!user) {
+    navigate('/auth', { state: { from: '/payment' } });
+    return null;
+  }
 
   const handlePaymentSuccess = async () => {
     try {
@@ -135,18 +103,6 @@ const PaymentPage = () => {
     return methodNames[paymentMethod] || methodNames.bank;
   };
 
-  if (isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-lg font-medium">Checking your account status...</p>
-          <p className="text-sm text-gray-500">Please wait while we verify your information</p>
-        </div>
-      </div>
-    );
-  }
-
   // Show payment success UI
   if (paymentCompleted) {
     return (
@@ -208,16 +164,6 @@ const PaymentPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <div className="bg-green-100 p-2 rounded-full">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="font-medium">Admin Approval</p>
-              <p className="text-sm text-gray-500">Your account has been approved by an administrator</p>
-            </div>
-          </div>
-          
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <div className="flex justify-between items-center mb-2">
               <span className="font-medium">
