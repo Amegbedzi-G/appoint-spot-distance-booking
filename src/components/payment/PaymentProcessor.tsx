@@ -47,7 +47,12 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
 
   const getButtonLabel = () => {
     if (isProcessing) {
-      return <>Processing<span className="animate-pulse">...</span></>;
+      return (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Processing Payment...
+        </>
+      );
     }
     
     const methodLabels: Record<string, string> = {
@@ -57,7 +62,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
     
     return (
       <>
-        Pay with {methodLabels[paymentMethod] || methodLabels.bank}
+        Pay ${price.toFixed(2)} with {methodLabels[paymentMethod] || methodLabels.bank}
         <ArrowRight className="ml-2 h-4 w-4" />
       </>
     );

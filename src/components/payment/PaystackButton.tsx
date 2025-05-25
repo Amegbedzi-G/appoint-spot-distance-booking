@@ -25,6 +25,8 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({
   isProcessing,
   setIsProcessing
 }) => {
+  const displayAmount = (amount / 100).toFixed(2); // Convert from kobo to dollars
+
   const handlePayment = () => {
     setIsProcessing(true);
     
@@ -55,12 +57,12 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({
       {isProcessing ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
+          Processing Payment...
         </>
       ) : (
         <>
           <PaystackIcon className="mr-2 h-4 w-4" />
-          Pay with Paystack
+          Pay ${displayAmount} with Paystack
         </>
       )}
     </Button>

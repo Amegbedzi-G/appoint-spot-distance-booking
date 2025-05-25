@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth';
 import { useAppointments } from '@/contexts/appointment';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 import PaymentProcessor from '@/components/payment/PaymentProcessor';
@@ -18,6 +18,7 @@ const PaymentPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('paystack');
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
   
   // Get booking data from location state if available
   const bookingData = location.state?.bookingData;
@@ -67,6 +68,10 @@ const PaymentPage = () => {
   const handlePaymentSuccess = async () => {
     try {
       setIsProcessing(true);
+      setPaymentCompleted(true);
+      
+      // Show success message immediately
+      toast.success(`Payment successful via ${getPaymentMethodName()}!`);
       
       // Update payment status in the user profile
       await setPaymentComplete();
@@ -88,25 +93,26 @@ const PaymentPage = () => {
           notes: bookingData.notes,
         });
         
-        toast.success(`Payment successful via ${getPaymentMethodName()}!`);
-        
         // Navigate to booking confirmation with the appointment ID
-        navigate(`/booking/confirmation/${newAppointment.id}`, { 
-          state: { 
-            paymentMethod: getPaymentMethodName(),
-            paymentCompleted: true
-          } 
-        });
+        setTimeout(() => {
+          navigate(`/booking/confirmation/${newAppointment.id}`, { 
+            state: { 
+              paymentMethod: getPaymentMethodName(),
+              paymentCompleted: true
+            },
+            replace: true
+          });
+        }, 1500);
       } else {
         // Regular payment flow - redirect to services
-        toast.success(`Payment successful via ${getPaymentMethodName()}!`);
         setTimeout(() => {
-          navigate('/services');
-        }, 1000);
+          navigate('/services', { replace: true });
+        }, 1500);
       }
     } catch (error) {
       console.error('Error processing payment:', error);
       toast.error('Error processing payment. Please try again.');
+      setPaymentCompleted(false);
     } finally {
       setIsProcessing(false);
     }
@@ -115,13 +121,14 @@ const PaymentPage = () => {
   const handlePaymentError = (error: string) => {
     toast.error(error || 'Payment failed. Please try again.');
     setIsProcessing(false);
+    setPaymentCompleted(false);
   };
   
   const getPaymentMethodName = () => {
     const methodNames: Record<string, string> = {
       paystack: 'Paystack',
       flutterwave: 'Flutterwave',
-      bank: 'Bank',
+      bank: 'Bank Transfer',
       bitcoin: 'Bitcoin'
     };
     
@@ -131,10 +138,57 @@ const PaymentPage = () => {
   if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full"></div>
-          <p className="mt-4">Checking your account status...</p>
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-lg font-medium">Checking your account status...</p>
+          <p className="text-sm text-gray-500">Please wait while we verify your information</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show payment success UI
+  if (paymentCompleted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl text-green-600">Payment Successful!</CardTitle>
+            <CardDescription>
+              Your payment has been processed successfully via {getPaymentMethodName()}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800">
+                  <span className="font-medium">Amount Paid:</span> ${price.toFixed(2)}
+                </p>
+                <p className="text-sm text-green-800 mt-1">
+                  <span className="font-medium">Payment Method:</span> {getPaymentMethodName()}
+                </p>
+              </div>
+              
+              {bookingData ? (
+                <p className="text-sm text-gray-600">
+                  Redirecting to your booking confirmation...
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  Redirecting to services page...
+                </p>
+              )}
+              
+              <div className="flex items-center justify-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-gray-500">Please wait...</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -169,7 +223,7 @@ const PaymentPage = () => {
               <span className="font-medium">
                 {bookingData ? 'Booking Fee' : 'Registration Fee'}
               </span>
-              <span className="font-bold">${price.toFixed(2)}</span>
+              <span className="font-bold text-lg">${price.toFixed(2)}</span>
             </div>
             <p className="text-sm text-gray-500">
               {bookingData 
@@ -177,6 +231,20 @@ const PaymentPage = () => {
                 : 'This payment provides access to all services and features.'
               }
             </p>
+            
+            {bookingData && (
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Service:</span> {bookingData.serviceId}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Date:</span> {bookingData.date}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Time:</span> {bookingData.timeSlot}
+                </p>
+              </div>
+            )}
           </div>
           
           <PaymentMethodSelector 

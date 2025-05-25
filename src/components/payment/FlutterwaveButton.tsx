@@ -60,12 +60,12 @@ export const FlutterwaveButton: React.FC<FlutterwaveButtonProps> = ({
       {isProcessing ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
+          Processing Payment...
         </>
       ) : (
         <>
           <FlutterwaveIcon className="mr-2 h-4 w-4" />
-          Pay with Flutterwave
+          Pay ${amount.toFixed(2)} with Flutterwave
         </>
       )}
     </Button>
