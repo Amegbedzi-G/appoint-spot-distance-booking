@@ -83,6 +83,14 @@ const App = () => (
                   } 
                 />
                 <Route 
+                  path="/bookings" 
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout><BookingsPage /></MainLayout>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
                   path="/book/:serviceId" 
                   element={
                     <ProtectedRoute>
