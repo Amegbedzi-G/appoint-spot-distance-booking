@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth';
@@ -130,9 +129,17 @@ const HomePage = () => {
           <>
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold">Your Dashboard</h1>
-              <Link to="/services">
-                <Button>Book New Service</Button>
-              </Link>
+              <div className="flex space-x-3">
+                <Link to="/bookings">
+                  <Button variant="outline">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    My Bookings
+                  </Button>
+                </Link>
+                <Link to="/services">
+                  <Button>Book New Service</Button>
+                </Link>
+              </div>
             </div>
             
             {hasApprovedAppointment && (
@@ -145,11 +152,18 @@ const HomePage = () => {
                         You have appointments that require payment
                       </p>
                     </div>
-                    <Link to="/payment">
-                      <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
-                        Make Payment
-                      </Button>
-                    </Link>
+                    <div className="flex space-x-2">
+                      <Link to="/bookings">
+                        <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
+                          View Bookings
+                        </Button>
+                      </Link>
+                      <Link to="/payment">
+                        <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
+                          Make Payment
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

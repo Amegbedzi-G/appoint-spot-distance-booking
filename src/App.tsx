@@ -15,6 +15,7 @@ import HomePage from "@/pages/HomePage";
 import ServicesPage from "@/pages/ServicesPage";
 import BookServicePage from "@/pages/BookServicePage";
 import BookingConfirmationPage from "@/pages/BookingConfirmationPage";
+import BookingsPage from "@/pages/BookingsPage";
 import AuthPage from "@/pages/AuthPage";
 import PaymentPage from "@/pages/PaymentPage";
 
